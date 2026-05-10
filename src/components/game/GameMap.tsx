@@ -1272,6 +1272,8 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
         }
         setAttackTarget(contextMenu.countryId);
         setAttackTroops(Math.min(Math.floor(gameState.troops), Math.max(100, Math.floor(gameState.troops / 2))));
+        setAttackTanks(Math.floor(gameState.tanks));
+        setAttackPlanes(Math.floor(gameState.planes));
         break;
       }
       case "makePeace": {
