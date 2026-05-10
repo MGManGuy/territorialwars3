@@ -1,0 +1,1532 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Territorial Wars</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0f1a;color:#fff;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;height:100vh;width:100vw}
+  #app{width:100vw;height:100vh;position:relative}
+
+  /* MAIN MENU */
+  #menu{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:16px;
+    background:linear-gradient(rgba(10,15,25,0.6),rgba(10,15,25,0.78)),url('https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Equirectangular_projection_SW.jpg/1280px-Equirectangular_projection_SW.jpg') center/cover}
+  .title{font-size:clamp(48px,8vw,96px);font-weight:900;color:#f97316;letter-spacing:-2px;
+    -webkit-text-stroke:2px white;paint-order:stroke fill;text-shadow:0 4px 24px rgba(0,0,0,0.7);text-align:center}
+  .subtitle{font-size:14px;color:#9ca3af;letter-spacing:4px;text-transform:uppercase;margin-top:-16px}
+  .name-bar{display:flex;align-items:center;gap:12px;background:rgba(15,20,32,0.85);border:1px solid #4a5568;border-radius:12px;padding:12px;width:100%;max-width:600px}
+  .name-bar input{flex:1;background:transparent;border:none;outline:none;color:#fff;font-size:16px;padding:4px 8px}
+  .name-bar input::placeholder{color:#6b7280}
+  .color-btn{width:44px;height:44px;border-radius:8px;border:2px solid rgba(255,255,255,0.2);cursor:pointer;flex-shrink:0;transition:.2s}
+  .color-btn:hover{border-color:rgba(255,255,255,0.6)}
+  .two-col{display:flex;gap:16px;width:100%;max-width:600px;flex-wrap:wrap}
+  .card{flex:1;min-width:240px;background:rgba(15,20,32,0.85);border:1px solid #4a5568;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .card-title{text-align:center;font-weight:700;font-size:14px}
+  .next-game{background:linear-gradient(135deg,#1a2030,#0a0f1a);border-radius:8px;padding:16px;text-align:center;flex:1;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .countdown{font-size:40px;font-weight:900;color:#f97316;font-variant-numeric:tabular-nums;letter-spacing:2px}
+  .btn{border:none;cursor:pointer;font-weight:700;border-radius:10px;transition:.2s;font-size:15px}
+  .btn-orange{background:#f97316;color:#fff;padding:14px;width:100%}
+  .btn-orange:hover{background:#ea580c}
+  .btn-orange:disabled{opacity:.4;cursor:not-allowed}
+  .btn-dark{background:rgba(26,32,48,0.85);border:1px solid #4a5568;color:#d1d5db;padding:14px;width:100%}
+  .btn-dark:hover{background:#1a2030;color:#fff}
+  .links{display:flex;gap:32px;font-size:13px;color:#6b7280}
+  .links span{cursor:pointer;transition:.2s}.links span:hover{color:#fff}
+  .color-picker-popup{position:absolute;top:52px;left:0;z-index:9999;background:#0f1420;border:1px solid #4a5568;border-radius:10px;padding:12px;display:grid;grid-template-columns:repeat(5,1fr);gap:8px;width:220px;box-shadow:0 8px 32px rgba(0,0,0,0.6)}
+  .swatch{width:32px;height:32px;border-radius:6px;border:2px solid transparent;cursor:pointer;transition:.15s}
+  .swatch:hover,.swatch.active{border-color:#fff;transform:scale(1.1)}
+
+  /* MODAL */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+  .modal{background:#0f1420;border:1px solid #4a5568;border-radius:16px;padding:24px;max-width:680px;width:100%;max-height:90vh;overflow-y:auto}
+  .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .modal-title{font-size:22px;font-weight:700}
+  .close-btn{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.1);border:none;cursor:pointer;color:#9ca3af;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.2s}
+  .close-btn:hover{background:rgba(255,255,255,0.2);color:#fff}
+  .section-label{text-align:center;font-weight:700;font-size:11px;letter-spacing:3px;margin-bottom:10px;color:#9ca3af}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .option-btn{border:2px solid #4a5568;background:#1a2030;border-radius:10px;padding:10px;cursor:pointer;text-align:center;transition:.2s;color:#d1d5db}
+  .option-btn:hover{border-color:#6a7588}
+  .option-btn.active{border-color:#f97316;background:rgba(249,115,22,0.1);color:#f97316}
+  .option-btn .opt-name{font-weight:700;font-size:13px}
+  .option-btn .opt-desc{font-size:11px;color:#6b7280;margin-top:2px}
+  .map-thumb{height:48px;background:#0a0f1a;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:4px}
+
+  /* COUNTRY SELECT */
+  #country-select-screen{position:absolute;inset:0;background:rgba(10,15,25,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:20px}
+  #country-select-screen h2{font-size:28px;font-weight:700;color:#f97316}
+  #cs-search{background:#1a2030;border:1px solid #4a5568;border-radius:8px;padding:10px 16px;color:#fff;font-size:15px;width:100%;max-width:500px;outline:none}
+  #cs-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;max-height:60vh;overflow-y:auto;width:100%;max-width:900px;padding-right:4px}
+  .cs-item{background:#1a2030;border:1px solid #4a5568;border-radius:8px;padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s;font-size:13px}
+  .cs-item:hover{border-color:#f97316;background:rgba(249,115,22,0.08)}
+  .cs-item .flag{font-size:20px}
+  .cs-item .cname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cs-item.selected{border-color:#7c3aed;background:rgba(124,58,237,0.12)}
+
+  /* GAME HUD */
+  #game-screen{position:absolute;inset:0;display:none}
+  #map-svg{width:100%;height:100%;background:#1a1f2e;cursor:grab}
+  #map-svg:active{cursor:grabbing}
+  .country-path{stroke:#4a5568;stroke-width:0.5;transition:filter .1s}
+  .country-path:hover{filter:brightness(1.25)}
+
+  /* HUD panels */
+  .hud{position:absolute;z-index:20;background:rgba(15,20,32,0.92);backdrop-filter:blur(6px);border:1px solid #4a5568;border-radius:12px;padding:12px}
+  #hud-date{top:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;white-space:nowrap;padding:8px 16px;border-radius:999px}
+  #hud-lb{top:12px;left:12px;min-width:270px}
+  #hud-stats{bottom:84px;left:12px;min-width:220px}
+  #hud-allies{bottom:12px;left:12px;min-width:220px;max-height:110px;overflow-y:auto}
+  #hud-hotbar{bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:4px}
+  #hud-rail{top:50%;right:12px;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;background:none;border:none;padding:0}
+  #hud-advisor-btn{bottom:12px;right:12px}
+  #hud-exit{top:12px;right:12px}
+
+  .hotbar-btn{width:56px;height:56px;border-radius:10px;background:rgba(15,20,32,0.92);border:1px solid #4a5568;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:22px;transition:.2s;color:#fff;position:relative}
+  .hotbar-btn:hover{background:#1a2030}
+  .hotbar-btn.active{background:#7c3aed;border-color:#a78bfa}
+  .hotbar-btn .hk{font-size:9px;color:#9ca3af;margin-top:1px}
+
+  .rail-btn{width:44px;height:44px;border-radius:10px;background:rgba(15,20,32,0.92);border:1px solid #4a5568;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:.2s;color:#fff;position:relative}
+  .rail-btn:hover{background:#1a2030}
+
+  .badge{position:absolute;top:-4px;right:-4px;background:#f97316;color:#fff;font-size:9px;font-weight:700;border-radius:999px;width:16px;height:16px;display:flex;align-items:center;justify-content:center}
+
+  #notification{position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(15,20,32,0.96);border:1px solid #f97316;color:#fff;padding:8px 20px;border-radius:10px;font-size:13px;white-space:nowrap;animation:fadein .2s;pointer-events:none}
+  @keyframes fadein{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+  /* CONTEXT MENU */
+  #ctx-menu{position:fixed;z-index:100;background:rgba(15,20,32,0.97);border:1px solid #4a5568;border-radius:12px;min-width:210px;padding:6px 0;box-shadow:0 8px 32px rgba(0,0,0,0.6);max-height:80vh;overflow-y:auto}
+  .ctx-header{padding:6px 14px;font-weight:700;font-size:13px;border-bottom:1px solid #4a5568;margin-bottom:4px;color:#fff}
+  .ctx-btn{width:100%;padding:7px 14px;text-align:left;background:none;border:none;cursor:pointer;color:#d1d5db;font-size:13px;display:flex;align-items:center;gap:8px;transition:.1s}
+  .ctx-btn:hover{background:rgba(255,255,255,0.06);color:#fff}
+  .ctx-btn.red{color:#f87171}.ctx-btn.green{color:#4ade80}.ctx-btn.cyan{color:#22d3ee}
+  .ctx-btn:disabled{opacity:.35;cursor:default}
+  .ctx-sep{height:1px;background:#4a5568;margin:4px 0}
+
+  /* INSPECT PANEL */
+  #inspect-panel{position:absolute;top:12px;right:12px;z-index:30;width:260px;background:rgba(15,20,32,0.96);border:1px solid #4a5568;border-radius:12px;padding:16px}
+
+  /* BATTLE MODAL */
+  #battle-modal{position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:80;background:rgba(15,20,32,0.97);border:1px solid rgba(239,68,68,0.5);border-radius:14px;padding:16px;width:420px;max-width:96vw;box-shadow:0 8px 40px rgba(0,0,0,0.7)}
+  .bar-wrap{width:100%;height:10px;border-radius:5px;overflow:hidden;background:rgba(0,0,0,0.4);margin:4px 0}
+  .bar-fill{height:100%;transition:width .3s;border-radius:5px}
+
+  /* ATTACK SETUP */
+  #attack-modal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65)}
+
+  /* ADVISOR */
+  #advisor-panel{position:absolute;bottom:60px;right:12px;z-index:40;width:300px;height:380px;background:rgba(15,20,32,0.97);border:1px solid #4a5568;border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+  #advisor-msgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
+  .advisor-msg{padding:8px 10px;border-radius:8px;font-size:12px;line-height:1.5}
+  .advisor-msg.user{background:rgba(124,58,237,0.25);margin-left:20px}
+  .advisor-msg.assistant{background:rgba(45,59,45,0.4);margin-right:20px;color:#d1fae5}
+
+  /* TABLE */
+  .lb-table{width:100%;border-collapse:collapse;font-size:11px}
+  .lb-table td{padding:1px 2px}
+  .lb-table td:last-child,.lb-table td:nth-child(3){text-align:right}
+  .player-row{color:#a78bfa}
+
+  /* RESEARCH / GOALS */
+  .research-item,.goal-item{background:#1a2030;border:1px solid #4a5568;border-radius:8px;padding:10px;margin-bottom:6px}
+  .research-item.done,.goal-item.done{border-color:rgba(74,222,128,0.4);background:rgba(22,101,52,0.15)}
+  progress-bar{display:block;height:4px;background:#0f1420;border-radius:2px;margin-top:4px}
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar{width:4px;height:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:#4a5568;border-radius:2px}
+
+  /* text utils */
+  .txt-orange{color:#f97316}.txt-green{color:#4ade80}.txt-cyan{color:#22d3ee}
+  .txt-red{color:#f87171}.txt-purple{color:#a78bfa}.txt-gray{color:#6b7280}
+  .txt-sm{font-size:11px}.txt-xs{font-size:10px}.fw7{font-weight:700}
+</style>
+  
+  
+  <meta name="description" content="A multiplayer game application built with TypeScript, enabling real-time player interaction and game progression.">
+  
+  
+  <meta property="og:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e176316f-189b-45b2-ab3d-ff7320c42a9f/id-preview-509e25a3--636fe927-f82b-4f8d-8f9d-26d5969dfac7.lovable.app-1778230306570.png">
+  <meta name="twitter:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e176316f-189b-45b2-ab3d-ff7320c42a9f/id-preview-509e25a3--636fe927-f82b-4f8d-8f9d-26d5969dfac7.lovable.app-1778230306570.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Territorial Wars">
+  <meta name="twitter:title" content="Territorial Wars">
+  <meta property="og:description" content="A multiplayer game application built with TypeScript, enabling real-time player interaction and game progression.">
+  <meta name="twitter:description" content="A multiplayer game application built with TypeScript, enabling real-time player interaction and game progression.">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+<div id="app">
+
+<!-- MAIN MENU -->
+<div id="menu">
+  <div>
+    <div class="title">Territorial Wars</div>
+    <div class="subtitle">Grand Strategy · Conquer the World</div>
+  </div>
+
+  <div class="name-bar" style="position:relative">
+    <div style="position:relative">
+      <button class="color-btn" id="color-btn" style="background:#7c3aed" title="Pick your color"></button>
+      <div class="color-picker-popup" id="color-popup" style="display:none">
+        <!-- swatches injected by JS -->
+      </div>
+    </div>
+    <input type="text" id="player-name" placeholder="Enter your name..." maxlength="24"/>
+    <span style="font-size:10px;font-weight:700;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid #f97316;border-radius:4px;padding:2px 6px">BETA</span>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Quick Battle</div>
+      <div class="next-game">
+        <div style="font-size:36px">🌍</div>
+        <div style="font-size:11px;color:#6b7280">Next public lobby in</div>
+        <div class="countdown" id="countdown">01:00</div>
+        <button class="btn btn-orange" id="btn-quick" style="padding:8px 20px;font-size:13px">Join Now</button>
+      </div>
+    </div>
+    <div class="card" style="gap:10px">
+      <button class="btn btn-orange" id="btn-singleplayer">Single Player</button>
+      <button class="btn btn-dark" id="btn-instructions">Instructions</button>
+      <button class="btn btn-dark" id="btn-about">About</button>
+    </div>
+  </div>
+
+  <div class="links">
+    <span id="link-privacy">Privacy Policy</span>
+    <span id="link-tos">Terms of Service</span>
+  </div>
+</div>
+
+<!-- SP LOBBY MODAL -->
+<div class="modal-bg" id="modal-lobby" style="display:none">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <div class="modal-title">Single Player Setup</div>
+      <button class="close-btn" onclick="hideModal('modal-lobby')">✕</button>
+    </div>
+
+    <div class="section-label">MAP</div>
+    <div class="grid4" id="map-grid" style="margin-bottom:20px"></div>
+
+    <div class="section-label">DIFFICULTY</div>
+    <div class="grid3" id="diff-grid" style="margin-bottom:20px"></div>
+
+    <div class="section-label">MODE</div>
+    <div class="grid2" id="mode-grid" style="margin-bottom:20px"></div>
+
+    <button class="btn btn-orange" id="btn-start-game">🚀 Start Game</button>
+  </div>
+</div>
+
+<!-- INSTRUCTIONS MODAL -->
+<div class="modal-bg" id="modal-instr" style="display:none">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <div class="modal-title">📖 How to Play</div>
+      <button class="close-btn" onclick="hideModal('modal-instr')">✕</button>
+    </div>
+    <ul style="font-size:14px;line-height:2;padding-left:20px;color:#d1d5db">
+      <li>Pick a starting country, then conquer the world.</li>
+      <li><strong>Right-click</strong> any foreign country for diplomacy & war actions.</li>
+      <li>Build buildings on <strong>your territories</strong> by clicking the hotbar (1–7) then clicking your country.</li>
+      <li>🏙 Cities = +gold/s &nbsp;| 🏭 Factories = +troops/s &nbsp;| ✈ Air Bases = planes</li>
+      <li>Justify a war goal → Declare War → Attack to conquer countries.</li>
+      <li>Improve relations (70+) to form alliances. Allies fight alongside you.</li>
+      <li>Research techs to boost attack, defense, gold, or troops by up to +50%.</li>
+      <li><strong>Space</strong> = pause &nbsp;|&nbsp; <strong>WASD / arrows</strong> = pan &nbsp;|&nbsp; <strong>scroll</strong> = zoom</li>
+    </ul>
+    <button class="btn btn-orange" style="margin-top:16px" onclick="hideModal('modal-instr')">Got it!</button>
+  </div>
+</div>
+
+<!-- ABOUT MODAL -->
+<div class="modal-bg" id="modal-about" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">About FrontWars</div>
+      <button class="close-btn" onclick="hideModal('modal-about')">✕</button>
+    </div>
+    <p style="color:#d1d5db;line-height:1.7;font-size:14px"><span style="color:#f97316;font-weight:700">Territorial Wars</span> is a browser-based grand strategy game. Pick a nation and compete to dominate the world map. Build factories, research technologies, forge alliances, and lead your armies to total victory.</p>
+    <p style="margin-top:12px;font-size:11px;color:#6b7280">Version 2.0 · Standalone Edition · May 2026</p>
+    <button class="btn btn-orange" style="margin-top:16px" onclick="hideModal('modal-about')">Close</button>
+  </div>
+</div>
+
+<!-- PRIVACY MODAL -->
+<div class="modal-bg" id="modal-privacy" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title">Privacy Policy</div><button class="close-btn" onclick="hideModal('modal-privacy')">✕</button></div>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Last updated: May 2026</p>
+    <p style="color:#d1d5db;font-size:13px;line-height:1.7">This game runs entirely in your browser. No personal data is collected or transmitted. No cookies, no ads, no tracking.</p>
+    <button class="btn btn-orange" style="margin-top:16px" onclick="hideModal('modal-privacy')">Close</button>
+  </div>
+</div>
+
+<!-- TOS MODAL -->
+<div class="modal-bg" id="modal-tos" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title">Terms of Service</div><button class="close-btn" onclick="hideModal('modal-tos')">✕</button></div>
+    <p style="color:#d1d5db;font-size:13px;line-height:1.7">Play fair. Don't cheat. This game is provided for entertainment. All content is the property of the FrontWars Team. By playing, you agree to have fun.</p>
+    <button class="btn btn-orange" style="margin-top:16px" onclick="hideModal('modal-tos')">Close</button>
+  </div>
+</div>
+
+<!-- COUNTRY SELECT SCREEN -->
+<div id="country-select-screen" style="display:none">
+  <h2>Choose Your Starting Country</h2>
+  <input type="text" id="cs-search" placeholder="Search countries..." />
+  <div id="cs-list"></div>
+  <button class="btn btn-orange" id="btn-confirm-country" disabled style="max-width:300px;width:100%">▶ Play as Selected Country</button>
+  <button class="btn btn-dark" style="max-width:300px;width:100%;font-size:13px" onclick="document.getElementById('country-select-screen').style.display='none';document.getElementById('menu').style.display='flex'">← Back</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen">
+  <svg id="map-svg"><g id="map-group"></g></svg>
+
+  <!-- Date HUD -->
+  <div class="hud" id="hud-date">
+    <button onclick="changeSpeed(-1)" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:16px">◀</button>
+    <button id="btn-pause" onclick="togglePause()" style="background:none;border:none;cursor:pointer;color:#fff;font-size:18px">⏸</button>
+    <span id="date-display" style="font-family:monospace;font-size:13px;min-width:160px;text-align:center">1 January 2025</span>
+    <span id="speed-display" style="color:#f97316;font-size:12px">×1</span>
+    <button onclick="changeSpeed(1)" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:16px">▶</button>
+  </div>
+
+  <!-- Leaderboard -->
+  <div class="hud" id="hud-lb">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:2px;text-transform:uppercase">Leaderboard</div>
+      <button onclick="toggleFullLb()" style="background:none;border:none;cursor:pointer;color:#f97316;font-size:10px;font-weight:700" id="lb-toggle">Show all ▼</button>
+    </div>
+    <table class="lb-table" id="lb-table"><tbody></tbody></table>
+  </div>
+
+  <!-- Stats -->
+  <div class="hud" id="hud-stats">
+    <div style="font-size:13px;margin-bottom:4px">⚔ Troops: <strong id="stat-troops">0</strong> <span class="txt-green txt-xs" id="stat-troop-rate">+0/s</span></div>
+    <div style="font-size:13px;margin-bottom:4px">🚜 Tanks: <strong id="stat-tanks">0</strong></div>
+    <div style="font-size:13px;margin-bottom:4px">✈ Planes: <strong id="stat-planes">0</strong></div>
+    <div style="font-size:13px;margin-bottom:4px">💰 Gold: <strong id="stat-gold">0</strong> <span class="txt-green txt-xs" id="stat-gold-rate">+0/s</span></div>
+    <div style="font-size:13px">🎖 PP: <strong id="stat-pp">0</strong> <span class="txt-green txt-xs" id="stat-pp-rate">+0/s</span></div>
+  </div>
+
+  <!-- Allies -->
+  <div class="hud" id="hud-allies" style="display:none">
+    <div style="font-size:10px;color:#22d3ee;font-weight:700;margin-bottom:4px;letter-spacing:1px">🕊 ALLIES</div>
+    <div id="allies-list"></div>
+  </div>
+
+  <!-- Hotbar -->
+  <div id="hud-hotbar">
+    <!-- injected by JS -->
+  </div>
+
+  <!-- Rail -->
+  <div id="hud-rail">
+    <button class="rail-btn" onclick="togglePanel('research-panel')" title="Research (R)">🔬</button>
+    <button class="rail-btn" onclick="togglePanel('goals-panel')" title="Goals (G)" id="rail-goals">
+      🏆<span class="badge" id="goals-badge" style="display:none">3</span>
+    </button>
+    <button class="rail-btn" onclick="togglePanel('notif-panel')" title="Notifications">🔔</button>
+  </div>
+
+  <!-- Advisor btn -->
+  <div class="hud" id="hud-advisor-btn" style="background:none;border:none;padding:0">
+    <button class="btn btn-orange" style="font-size:13px;padding:8px 14px" onclick="toggleAdvisor()">🧠 AI Advisor</button>
+  </div>
+
+  <!-- Exit -->
+  <div class="hud" id="hud-exit" style="background:none;border:none;padding:0">
+    <button class="btn btn-dark" style="font-size:12px;padding:6px 12px" onclick="exitGame()">✕ Exit</button>
+  </div>
+
+  <!-- Notification -->
+  <div id="notification" style="display:none"></div>
+
+  <!-- Context Menu -->
+  <div id="ctx-menu" style="display:none"></div>
+
+  <!-- Inspect Panel -->
+  <div id="inspect-panel" style="display:none"></div>
+
+  <!-- Research Panel -->
+  <div class="hud" id="research-panel" style="display:none;position:absolute;top:50%;right:72px;transform:translateY(-50%);width:300px;max-height:70vh;overflow-y:auto;z-index:30">
+    <div class="modal-header" style="margin-bottom:10px">
+      <div class="modal-title" style="font-size:16px">🔬 Research</div>
+      <button class="close-btn" onclick="togglePanel('research-panel')">✕</button>
+    </div>
+    <div id="research-content"></div>
+  </div>
+
+  <!-- Goals Panel -->
+  <div class="hud" id="goals-panel" style="display:none;position:absolute;top:50%;right:72px;transform:translateY(-50%);width:300px;max-height:70vh;overflow-y:auto;z-index:30">
+    <div class="modal-header" style="margin-bottom:10px">
+      <div class="modal-title" style="font-size:16px">🏆 Goals</div>
+      <button class="close-btn" onclick="togglePanel('goals-panel')">✕</button>
+    </div>
+    <div id="goals-content"></div>
+  </div>
+
+  <!-- Notif Panel -->
+  <div class="hud" id="notif-panel" style="display:none;position:absolute;top:50%;right:72px;transform:translateY(-50%);width:300px;max-height:70vh;overflow-y:auto;z-index:30">
+    <div class="modal-header" style="margin-bottom:10px">
+      <div class="modal-title" style="font-size:16px">🔔 Notifications</div>
+      <button class="close-btn" onclick="togglePanel('notif-panel')">✕</button>
+    </div>
+    <div id="notif-content" style="font-size:12px;display:flex;flex-direction:column;gap:4px"></div>
+  </div>
+
+  <!-- Advisor Panel -->
+  <div id="advisor-panel" style="display:none">
+    <div style="padding:10px 12px;border-bottom:1px solid #4a5568;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-weight:700;font-size:13px">🧠 Strategy Advisor</span>
+      <button class="close-btn" onclick="toggleAdvisor()">✕</button>
+    </div>
+    <div id="advisor-msgs">
+      <div style="color:#6b7280;font-size:12px;text-align:center;margin-top:30px">Ask for strategic advice...</div>
+    </div>
+    <div style="padding:8px;border-top:1px solid #4a5568;display:flex;gap:6px">
+      <input id="advisor-input" style="flex:1;background:#1a2030;border:1px solid #4a5568;border-radius:6px;padding:6px;color:#fff;font-size:12px;outline:none" placeholder="Ask for advice..." onkeydown="if(event.key==='Enter')sendAdvisorMsg()"/>
+      <button class="btn btn-orange" style="padding:6px 10px;font-size:12px" id="advisor-send" onclick="sendAdvisorMsg()">Send</button>
+    </div>
+  </div>
+
+  <!-- Battle Modal -->
+  <div id="battle-modal" style="display:none"></div>
+
+  <!-- Attack Setup Modal -->
+  <div id="attack-modal" style="display:none">
+    <div class="modal" style="max-width:440px">
+      <div id="attack-modal-content"></div>
+    </div>
+  </div>
+
+</div><!-- /game-screen -->
+</div><!-- /app -->
+
+<script>
+// ============================================================
+// DATA: Country Names & Flags
+// ============================================================
+const COUNTRY_NAMES = {
+  "004":"Afghanistan","008":"Albania","012":"Algeria","024":"Angola","032":"Argentina","036":"Australia","040":"Austria","031":"Azerbaijan","050":"Bangladesh","051":"Armenia","056":"Belgium","064":"Bhutan","068":"Bolivia","070":"Bosnia and Herzegovina","072":"Botswana","076":"Brazil","096":"Brunei","100":"Bulgaria","104":"Myanmar","108":"Burundi","112":"Belarus","116":"Cambodia","120":"Cameroon","124":"Canada","140":"Central African Republic","144":"Sri Lanka","148":"Chad","152":"Chile","156":"China","158":"Taiwan","170":"Colombia","178":"Congo","180":"DR Congo","188":"Costa Rica","191":"Croatia","192":"Cuba","196":"Cyprus","203":"Czech Republic","204":"Benin","208":"Denmark","214":"Dominican Republic","218":"Ecuador","222":"El Salvador","231":"Ethiopia","232":"Eritrea","233":"Estonia","242":"Fiji","246":"Finland","250":"France","262":"Djibouti","266":"Gabon","268":"Georgia","270":"Gambia","276":"Germany","288":"Ghana","300":"Greece","304":"Greenland","320":"Guatemala","324":"Guinea","328":"Guyana","332":"Haiti","340":"Honduras","348":"Hungary","352":"Iceland","356":"India","360":"Indonesia","364":"Iran","368":"Iraq","372":"Ireland","376":"Israel","380":"Italy","384":"Ivory Coast","388":"Jamaica","392":"Japan","398":"Kazakhstan","400":"Jordan","404":"Kenya","408":"North Korea","410":"South Korea","414":"Kuwait","417":"Kyrgyzstan","418":"Laos","422":"Lebanon","426":"Lesotho","428":"Latvia","430":"Liberia","434":"Libya","440":"Lithuania","442":"Luxembourg","450":"Madagascar","454":"Malawi","458":"Malaysia","466":"Mali","478":"Mauritania","484":"Mexico","496":"Mongolia","498":"Moldova","499":"Montenegro","504":"Morocco","508":"Mozambique","512":"Oman","516":"Namibia","524":"Nepal","528":"Netherlands","554":"New Zealand","558":"Nicaragua","562":"Niger","566":"Nigeria","578":"Norway","586":"Pakistan","591":"Panama","598":"Papua New Guinea","600":"Paraguay","604":"Peru","608":"Philippines","616":"Poland","620":"Portugal","634":"Qatar","642":"Romania","643":"Russia","646":"Rwanda","682":"Saudi Arabia","686":"Senegal","688":"Serbia","694":"Sierra Leone","703":"Slovakia","704":"Vietnam","705":"Slovenia","706":"Somalia","710":"South Africa","716":"Zimbabwe","724":"Spain","728":"South Sudan","729":"Sudan","740":"Suriname","752":"Sweden","756":"Switzerland","760":"Syria","762":"Tajikistan","764":"Thailand","768":"Togo","784":"UAE","788":"Tunisia","792":"Turkey","795":"Turkmenistan","800":"Uganda","804":"Ukraine","807":"N. Macedonia","818":"Egypt","826":"United Kingdom","834":"Tanzania","840":"United States","854":"Burkina Faso","858":"Uruguay","860":"Uzbekistan","862":"Venezuela","887":"Yemen","894":"Zambia"
+};
+const COUNTRY_FLAGS = {
+  "004":"🇦🇫","008":"🇦🇱","012":"🇩🇿","024":"🇦🇴","032":"🇦🇷","036":"🇦🇺","040":"🇦🇹","031":"🇦🇿","050":"🇧🇩","051":"🇦🇲","056":"🇧🇪","064":"🇧🇹","068":"🇧🇴","070":"🇧🇦","072":"🇧🇼","076":"🇧🇷","096":"🇧🇳","100":"🇧🇬","104":"🇲🇲","108":"🇧🇮","112":"🇧🇾","116":"🇰🇭","120":"🇨🇲","124":"🇨🇦","140":"🇨🇫","144":"🇱🇰","148":"🇹🇩","152":"🇨🇱","156":"🇨🇳","158":"🇹🇼","170":"🇨🇴","178":"🇨🇬","180":"🇨🇩","188":"🇨🇷","191":"🇭🇷","192":"🇨🇺","196":"🇨🇾","203":"🇨🇿","204":"🇧🇯","208":"🇩🇰","214":"🇩🇴","218":"🇪🇨","222":"🇸🇻","231":"🇪🇹","232":"🇪🇷","233":"🇪🇪","242":"🇫🇯","246":"🇫🇮","250":"🇫🇷","262":"🇩🇯","266":"🇬🇦","268":"🇬🇪","270":"🇬🇲","276":"🇩🇪","288":"🇬🇭","300":"🇬🇷","304":"🇬🇱","320":"🇬🇹","324":"🇬🇳","328":"🇬🇾","332":"🇭🇹","340":"🇭🇳","348":"🇭🇺","352":"🇮🇸","356":"🇮🇳","360":"🇮🇩","364":"🇮🇷","368":"🇮🇶","372":"🇮🇪","376":"🇮🇱","380":"🇮🇹","384":"🇨🇮","388":"🇯🇲","392":"🇯🇵","398":"🇰🇿","400":"🇯🇴","404":"🇰🇪","408":"🇰🇵","410":"🇰🇷","414":"🇰🇼","417":"🇰🇬","418":"🇱🇦","422":"🇱🇧","426":"🇱🇸","428":"🇱🇻","430":"🇱🇷","434":"🇱🇾","440":"🇱🇹","442":"🇱🇺","450":"🇲🇬","454":"🇲🇼","458":"🇲🇾","466":"🇲🇱","478":"🇲🇷","484":"🇲🇽","496":"🇲🇳","498":"🇲🇩","499":"🇲🇪","504":"🇲🇦","508":"🇲🇿","512":"🇴🇲","516":"🇳🇦","524":"🇳🇵","528":"🇳🇱","554":"🇳🇿","558":"🇳🇮","562":"🇳🇪","566":"🇳🇬","578":"🇳🇴","586":"🇵🇰","591":"🇵🇦","598":"🇵🇬","600":"🇵🇾","604":"🇵🇪","608":"🇵🇭","616":"🇵🇱","620":"🇵🇹","634":"🇶🇦","642":"🇷🇴","643":"🇷🇺","646":"🇷🇼","682":"🇸🇦","686":"🇸🇳","688":"🇷🇸","694":"🇸🇱","703":"🇸🇰","704":"🇻🇳","705":"🇸🇮","706":"🇸🇴","710":"🇿🇦","716":"🇿🇼","724":"🇪🇸","728":"🇸🇸","729":"🇸🇩","740":"🇸🇷","752":"🇸🇪","756":"🇨🇭","760":"🇸🇾","762":"🇹🇯","764":"🇹🇭","768":"🇹🇬","780":"🇹🇹","784":"🇦🇪","788":"🇹🇳","792":"🇹🇷","795":"🇹🇲","800":"🇺🇬","804":"🇺🇦","807":"🇲🇰","818":"🇪🇬","826":"🇬🇧","834":"🇹🇿","840":"🇺🇸","854":"🇧🇫","858":"🇺🇾","860":"🇺🇿","862":"🇻🇪","887":"🇾🇪","894":"🇿🇲"
+};
+function cname(id){return COUNTRY_NAMES[id]||`Country ${id}`}
+function cflag(id){return COUNTRY_FLAGS[id]||'🏳'}
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+const PLAYER_COLOR='#7c3aed';
+const BOT_COLORS=['#e63946','#457b9d','#2a9d8f','#e9c46a','#f4a261','#264653','#6a4c93','#1982c4','#8ac926','#ff595e','#ffca3a','#6a0572','#ab83a1','#c1666b','#48639c','#d4a373','#606c38','#283618','#bc6c25','#dda15e','#003049','#d62828','#f77f00','#fcbf49','#eae2b7','#0077b6','#00b4d8','#90e0ef','#023e8a','#780000'];
+const COUNTRY_COLORS={"840":"#4a7fb5","124":"#c41e3a","156":"#de2910","643":"#4d7a4d","250":"#002395","826":"#012169","276":"#5a5a5a","724":"#c60b1e","818":"#c09a3a","682":"#1a6b3a","356":"#f77f00","586":"#1a7a3a","076":"#009c3b","392":"#bc002d","792":"#c8102e","380":"#009246","528":"#ae1c28","616":"#dc143c","710":"#007a4d","484":"#006847","360":"#ce1126","704":"#da251d","764":"#a51931","050":"#006a4e","410":"#003478","566":"#008751","012":"#006233","032":"#74acdf","152":"#d52b1e","170":"#fcd116","400":"#007a3d"};
+const LANDLOCKED=new Set(["040","051","031","064","068","112","072","854","108","140","148","203","268","348","398","417","418","442","426","454","466","478","496","524","562","620","646","686","688","705","703","728","748","762","795","800","860","807","716","894","499"]);
+const MAJOR_POWERS=new Set(["840","156","356","076","643"]);
+const SECONDARY_POWERS=new Set(["250","826","586","682","124","276"]);
+const COUNTRY_ECON_MULT={"840":9.5,"156":9.5,"356":8.0,"076":6.5,"643":8.0,"250":4.0,"826":4.0,"586":3.5,"682":4.0,"124":4.0,"276":4.2};
+const BUILDING_DEFS={
+  city:{icon:'🏙',label:'City',cost:100,desc:'+5 gold/s'},
+  factory:{icon:'🏭',label:'Factory',cost:150,desc:'+10 troops/s, +1 tank/s'},
+  port:{icon:'⚓',label:'Port',cost:120,desc:'Naval invasion cap +1000',coastal:true},
+  fort:{icon:'🛡',label:'Fort',cost:80,desc:'+2% defense per fort'},
+  barracks:{icon:'🪖',label:'Barracks',cost:130,desc:'+8 troops/s'},
+  courthouse:{icon:'⚖',label:'Courthouse',cost:140,desc:'+0.5 PP/s'},
+  airbase:{icon:'✈',label:'Air Base',cost:200,desc:'Costs 2 gold/s, +1 plane/s'},
+};
+const BUILDING_SLOTS=['city','factory','port','fort','barracks','courthouse','airbase'];
+const RESEARCH_DEFS=[
+  {id:'atk',label:'Improved Tactics',cost:1000,dur:60,desc:'+10% attack power'},
+  {id:'def',label:'Defensive Doctrine',cost:1000,dur:60,desc:'+10% defense'},
+  {id:'gold',label:'Trade Networks',cost:1000,dur:60,desc:'+10% gold income'},
+  {id:'troop',label:'Conscription',cost:1000,dur:60,desc:'+10% troop production'},
+];
+const GOALS=[
+  {id:'continent',label:'Conquer Your Continent',desc:'Own every country on your starting continent',reward:200},
+  {id:'ten',label:'Empire of Ten',desc:'Own 10 countries',reward:500},
+  {id:'twentyfive',label:'Quarter Century',desc:'Own 25 countries',reward:1000},
+];
+const CONTINENTS={
+  "840":"NA","124":"NA","484":"NA","320":"NA","340":"NA","188":"NA","558":"NA","591":"NA","222":"NA","192":"NA","214":"NA","332":"NA","388":"NA",
+  "076":"SA","032":"SA","152":"SA","604":"SA","170":"SA","862":"SA","218":"SA","068":"SA","600":"SA","858":"SA","328":"SA","740":"SA",
+  "250":"EU","276":"EU","826":"EU","380":"EU","724":"EU","620":"EU","528":"EU","056":"EU","040":"EU","756":"EU","752":"EU","578":"EU","246":"EU","208":"EU","372":"EU","300":"EU","616":"EU","348":"EU","642":"EU","203":"EU","703":"EU","688":"EU","191":"EU","070":"EU","807":"EU","008":"EU","499":"EU","100":"EU","705":"EU","440":"EU","428":"EU","233":"EU","498":"EU","804":"EU","112":"EU","643":"EU",
+  "156":"AS","356":"AS","392":"AS","410":"AS","408":"AS","704":"AS","764":"AS","458":"AS","360":"AS","608":"AS","586":"AS","050":"AS","364":"AS","368":"AS","682":"AS","792":"AS","004":"AS","398":"AS","860":"AS","417":"AS","762":"AS","795":"AS","496":"AS","104":"AS","116":"AS","418":"AS","031":"AS","051":"AS","268":"AS","400":"AS","422":"AS","760":"AS","414":"AS","634":"AS","784":"AS","512":"AS","887":"AS","144":"AS","524":"AS","064":"AS","096":"AS",
+  "818":"AF","566":"AF","012":"AF","504":"AF","434":"AF","729":"AF","732":"AF","478":"AF","466":"AF","562":"AF","148":"AF","024":"AF","180":"AF","178":"AF","120":"AF","140":"AF","231":"AF","706":"AF","404":"AF","834":"AF","508":"AF","710":"AF","716":"AF","894":"AF","454":"AF","072":"AF","516":"AF","266":"AF","288":"AF","384":"AF","324":"AF","430":"AF","694":"AF","270":"AF","686":"AF","204":"AF","768":"AF","854":"AF","450":"AF","646":"AF","108":"AF","800":"AF","728":"AF","262":"AF","232":"AF","748":"AF","426":"AF","624":"AF",
+  "036":"OC","554":"OC","598":"OC","242":"OC","548":"OC","090":"OC",
+};
+const CONTINENT_NAMES={NA:'North America',SA:'South America',EU:'Europe',AS:'Asia',AF:'Africa',OC:'Oceania'};
+const MAPS=[
+  {id:'world',label:'World',icon:'🌍'},
+  {id:'europe',label:'Europe',icon:'🗺'},
+  {id:'north_america',label:'N. America',icon:'🌎'},
+  {id:'south_america',label:'S. America',icon:'🌎'},
+  {id:'africa',label:'Africa',icon:'🌍'},
+  {id:'asia',label:'Asia',icon:'🌏'},
+];
+const DIFFICULTIES=[
+  {id:'easy',label:'Easy',desc:'Standard AI'},
+  {id:'normal',label:'Normal',desc:'AI +25% economy'},
+  {id:'hard',label:'Hard',desc:'AI +60% economy'},
+];
+const PP_COSTS={improve:15,trade:10,guarantee:15,diplomat:100,ally:25,breakAlliance:15,justify:30,declareWar:50};
+const COLOR_PALETTE=['#f97316','#ef4444','#eab308','#10b981','#14b8a6','#3b82f6','#7c3aed','#ec4899','#ffffff','#1f2937'];
+const BOT_COUNTRY_POOL=["032","036","040","050","056","068","076","100","104","112","116","120","124","148","152","156","170","191","192","203","208","218","231","246","250","268","276","288","300","348","356","360","364","368","380","392","398","404","410","434","458","484","496","504","508","516","524","528","554","558","566","578","586","604","608","616","620","642","643","682","686","688","704","710","724","752","756","764","788","792","804","818","826","834","840","854","858","862"];
+
+// ============================================================
+// STATE
+// ============================================================
+let playerColor='#7c3aed';
+let selectedDifficulty='easy';
+let selectedMap='world';
+let selectedMode='ffa';
+let selectedCountryId=null;
+let selectedBuilding=null;
+let gameState=null;
+let features=[];
+let neighborsMap={};
+let svgD3=null;
+let projectionFn=null;
+let pathFn=null;
+let zoomBehavior=null;
+let gameLoop=null;
+let battleLoop=null;
+let botLoop=null;
+let contextMenuTarget=null;
+let battle=null;
+let attackTarget=null;
+let showFullLb=false;
+let advisorMessages=[];
+let advisorLoading=false;
+let notifTimer=null;
+let lastTroopRequestYear=0;
+let advisorOpen=false;
+let inspectId=null;
+
+// ============================================================
+// MENU INIT
+// ============================================================
+function varHash(id){let h=0;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return h}
+function econMult(id){
+  if(COUNTRY_ECON_MULT[id]!=null){const j=0.95+((Array.from(id).reduce((a,c)=>a+c.charCodeAt(0),0)%100)/1000);return COUNTRY_ECON_MULT[id]*j;}
+  return 0.7+((varHash(id)%1000)/1000)*0.55;
+}
+
+// Color picker
+const popup=document.getElementById('color-popup');
+const colorBtn=document.getElementById('color-btn');
+COLOR_PALETTE.forEach(c=>{
+  const s=document.createElement('button');
+  s.className='swatch'+(c===playerColor?' active':'');
+  s.style.background=c;
+  s.onclick=()=>{playerColor=c;colorBtn.style.background=c;popup.style.display='none';popup.querySelectorAll('.swatch').forEach(x=>x.classList.toggle('active',x.style.background===c))};
+  popup.appendChild(s);
+});
+colorBtn.onclick=(e)=>{e.stopPropagation();popup.style.display=popup.style.display==='none'?'block':'none'};
+document.addEventListener('click',()=>popup.style.display='none');
+
+// Map grid
+const mapGrid=document.getElementById('map-grid');
+MAPS.forEach(m=>{
+  const b=document.createElement('div');
+  b.className='option-btn'+(m.id===selectedMap?' active':'');
+  b.innerHTML=`<div class="map-thumb">${m.icon}</div><div class="opt-name" style="font-size:11px">${m.label}</div>`;
+  b.onclick=()=>{selectedMap=m.id;mapGrid.querySelectorAll('.option-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active')};
+  mapGrid.appendChild(b);
+});
+
+// Diff grid
+const diffGrid=document.getElementById('diff-grid');
+DIFFICULTIES.forEach(d=>{
+  const b=document.createElement('div');
+  b.className='option-btn'+(d.id===selectedDifficulty?' active':'');
+  b.innerHTML=`<div class="opt-name">${d.label}</div><div class="opt-desc">${d.desc}</div>`;
+  b.onclick=()=>{selectedDifficulty=d.id;diffGrid.querySelectorAll('.option-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active')};
+  diffGrid.appendChild(b);
+});
+
+// Mode grid
+const modeGrid=document.getElementById('mode-grid');
+[{id:'ffa',label:'Free for All'},{id:'teams',label:'Teams'}].forEach(m=>{
+  const b=document.createElement('div');
+  b.className='option-btn'+(m.id===selectedMode?' active':'');
+  b.innerHTML=`<div class="opt-name">${m.label}</div>`;
+  b.onclick=()=>{selectedMode=m.id;modeGrid.querySelectorAll('.option-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active')};
+  modeGrid.appendChild(b);
+});
+
+// Countdown
+setInterval(()=>{
+  const secs=60-(Math.floor(Date.now()/1000)%60);
+  document.getElementById('countdown').textContent=`${String(Math.floor(secs/60)).padStart(2,'0')}:${String(secs%60).padStart(2,'0')}`;
+},1000);
+
+// Hotbar
+const hotbar=document.getElementById('hud-hotbar');
+BUILDING_SLOTS.forEach((bt,i)=>{
+  const d=BUILDING_DEFS[bt];
+  const btn=document.createElement('button');
+  btn.className='hotbar-btn';
+  btn.id=`hbar-${bt}`;
+  btn.title=`${d.label} — ${d.cost}g — ${d.desc}`;
+  btn.innerHTML=`<span style="font-size:22px">${d.icon}</span><span class="hk">${i+1}</span>`;
+  btn.onclick=(e)=>{e.stopPropagation();setSelectedBuilding(selectedBuilding===bt?null:bt)};
+  hotbar.appendChild(btn);
+});
+
+function setSelectedBuilding(bt){
+  selectedBuilding=bt;
+  BUILDING_SLOTS.forEach(b=>document.getElementById(`hbar-${b}`)?.classList.toggle('active',b===bt));
+  document.getElementById('map-svg').style.cursor=bt?'crosshair':'grab';
+}
+
+// Modal helpers
+function showModal(id){document.getElementById(id).style.display='flex'}
+function hideModal(id){document.getElementById(id).style.display='none'}
+function togglePanel(id){const el=document.getElementById(id);el.style.display=el.style.display==='none'?'block':'none'}
+function toggleAdvisor(){advisorOpen=!advisorOpen;document.getElementById('advisor-panel').style.display=advisorOpen?'flex':'none'}
+
+document.getElementById('btn-singleplayer').onclick=()=>showModal('modal-lobby');
+document.getElementById('btn-instructions').onclick=()=>showModal('modal-instr');
+document.getElementById('btn-about').onclick=()=>showModal('modal-about');
+document.getElementById('btn-quick').onclick=()=>showModal('modal-instr'); // demo
+document.getElementById('link-privacy').onclick=()=>showModal('modal-privacy');
+document.getElementById('link-tos').onclick=()=>showModal('modal-tos');
+
+document.getElementById('btn-start-game').onclick=()=>{
+  hideModal('modal-lobby');
+  showCountrySelect();
+};
+
+// ============================================================
+// COUNTRY SELECT
+// ============================================================
+function showCountrySelect(){
+  document.getElementById('menu').style.display='none';
+  document.getElementById('country-select-screen').style.display='flex';
+  renderCountryList('');
+}
+
+function renderCountryList(q){
+  const list=document.getElementById('cs-list');
+  list.innerHTML='';
+  const ids=Object.keys(COUNTRY_NAMES).filter(id=>id!=='010'&&(q===''||COUNTRY_NAMES[id].toLowerCase().includes(q.toLowerCase())||cflag(id).includes(q)));
+  ids.sort((a,b)=>COUNTRY_NAMES[a].localeCompare(COUNTRY_NAMES[b]));
+  ids.forEach(id=>{
+    const div=document.createElement('div');
+    div.className='cs-item'+(id===selectedCountryId?' selected':'');
+    div.innerHTML=`<span class="flag">${cflag(id)}</span><span class="cname">${cname(id)}</span>`;
+    div.onclick=()=>{selectedCountryId=id;list.querySelectorAll('.cs-item').forEach(x=>x.classList.toggle('selected',x===div));document.getElementById('btn-confirm-country').disabled=false};
+    list.appendChild(div);
+  });
+}
+
+document.getElementById('cs-search').oninput=(e)=>renderCountryList(e.target.value);
+document.getElementById('btn-confirm-country').onclick=()=>{
+  if(!selectedCountryId)return;
+  document.getElementById('country-select-screen').style.display='none';
+  startGame(selectedCountryId);
+};
+
+// ============================================================
+// GAME INIT
+// ============================================================
+function startGame(playerCid){
+  document.getElementById('game-screen').style.display='block';
+  initGameState(playerCid);
+  loadMap();
+}
+
+function initGameState(playerCid){
+  const priority=["840","156","356","076","643","250","826","586","682","124","276"].filter(id=>id!==playerCid);
+  const rest=BOT_COUNTRY_POOL.filter(id=>id!==playerCid&&!priority.includes(id)).sort(()=>Math.random()-0.5);
+  const botAssign=[...priority,...rest].slice(0,30);
+  const bots=botAssign.map((cid,i)=>({id:`bot-${i}`,name:cname(cid),color:COUNTRY_COLORS[cid]||BOT_COLORS[i%BOT_COLORS.length],countryId:cid}));
+
+  const allIds=Object.keys(COUNTRY_NAMES).filter(id=>id!=='010');
+  const countries={};
+  const unownedPalette=['#5a6b5a','#6b5a5a','#5a5a6b','#6b6b5a','#5a6b6b','#7a8a7a','#8a7a7a','#7a7a8a','#8a8a7a','#7a8a8a','#4d5d4d','#5d4d4d','#4d4d5d','#5d5d4d','#4d5d5d'];
+  let pi=0;
+  for(const cid of allIds){
+    const bot=bots.find(b=>b.countryId===cid);
+    const isPlayer=cid===playerCid;
+    let gold=200,troops=300;
+    if(MAJOR_POWERS.has(cid)){gold=800;troops=1500;}
+    else if(SECONDARY_POWERS.has(cid)){gold=450;troops=800;}
+    if(isPlayer){gold+=100;troops+=200;}
+    countries[cid]={id:cid,name:cname(cid),owner:isPlayer?'player':bot?bot.id:null,troops,tanks:0,planes:0,gold,buildings:[],relations:{},tradeDeals:[],isCoastal:!LANDLOCKED.has(cid),color:isPlayer?playerColor:bot?(COUNTRY_COLORS[cid]||bot.color):unownedPalette[pi++%unownedPalette.length],diplomatUntil:null};
+  }
+
+  const playerStart={gold:MAJOR_POWERS.has(playerCid)?800:SECONDARY_POWERS.has(playerCid)?450:200,troops:MAJOR_POWERS.has(playerCid)?1500:SECONDARY_POWERS.has(playerCid)?800:300};
+
+  gameState={
+    playerCountryId:playerCid,countries,bots,
+    date:{day:1,month:0,year:2025},speed:1,paused:false,
+    gold:playerStart.gold+100,troops:playerStart.troops+200,tanks:0,planes:0,politicalPower:50,
+    alliances:[],warGoals:[],wars:[],guarantees:[],
+    researchLevels:{atk:0,def:0,gold:0,troop:0},activeResearch:null,
+    completedGoals:[],notifications:[],
+    botResearch:Object.fromEntries(bots.map(b=>[b.id,{atk:0,def:0,gold:0,troop:0}])),
+    botSavings:Object.fromEntries(bots.map(b=>[b.id,0])),
+  };
+}
+
+// ============================================================
+// MAP LOAD + D3
+// ============================================================
+function loadMap(){
+  fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+    .then(r=>r.json())
+    .then(topo=>{
+      const geo=topojson.feature(topo,topo.objects.countries);
+      features=geo.features.filter(f=>f.id!=='010'&&f.id!==10);
+      // Build neighbor index
+      const geoms=topo.objects.countries.geometries;
+      const nbArrays=topojson.neighbors(geoms);
+      geoms.forEach((obj,i)=>{
+        const id=String(obj.id).padStart(3,'0');
+        if(!id)return;
+        neighborsMap[id]=new Set(nbArrays[i].map(j=>String(geoms[j].id).padStart(3,'0')).filter(Boolean));
+      });
+      drawMap();
+      startGameLoops();
+    });
+}
+
+function drawMap(){
+  const svg=document.getElementById('map-svg');
+  const w=window.innerWidth,h=window.innerHeight;
+  svgD3=d3.select('#map-svg');
+  const g=d3.select('#map-group');
+
+  projectionFn=d3.geoNaturalEarth1().fitSize([w,h],{type:'FeatureCollection',features});
+  pathFn=d3.geoPath(projectionFn);
+
+  zoomBehavior=d3.zoom().scaleExtent([1,8]).on('zoom',e=>g.attr('transform',e.transform.toString()));
+  svgD3.call(zoomBehavior);
+
+  g.selectAll('path.country-path')
+    .data(features,d=>d.id)
+    .join('path')
+    .attr('class','country-path')
+    .attr('d',d=>pathFn(d)||'')
+    .attr('data-id',d=>String(d.id).padStart(3,'0'));
+
+  svgD3.on('click',handleMapClick).on('contextmenu',handleRightClick);
+  updateFills();
+}
+
+function updateFills(){
+  if(!svgD3||!gameState)return;
+  d3.select('#map-group').selectAll('path.country-path')
+    .attr('fill',d=>{const id=String(d.id).padStart(3,'0');const c=gameState.countries[id];if(!c)return '#2d3b2d';return c.color||'#5a6b5a'})
+    .attr('stroke',d=>{const id=String(d.id).padStart(3,'0');if(id===gameState.playerCountryId)return '#a78bfa';const c=gameState.countries[id];if(c?.owner&&gameState.alliances.includes(c.owner))return '#22d3ee';return '#4a5568'})
+    .attr('stroke-width',d=>{const id=String(d.id).padStart(3,'0');if(id===gameState.playerCountryId)return 1.5;const c=gameState.countries[id];if(c?.owner&&gameState.alliances.includes(c.owner))return 1.2;return 0.5});
+}
+
+// ============================================================
+// GAME LOOPS
+// ============================================================
+function startGameLoops(){
+  gameLoop=setInterval(economyTick,100);
+  battleLoop=setInterval(battleTick,250);
+  botLoop=setInterval(botTick,3000);
+  setInterval(counterAttackTick,2000);
+  setInterval(updateHUD,200);
+}
+
+function economyTick(){
+  if(!gameState||gameState.paused)return;
+  const gs=gameState;
+  const now=Date.now();
+  // Advance date
+  gs.date=advanceDate(gs.date,gs.speed);
+
+  const aiBuff=selectedDifficulty==='hard'?1.6:selectedDifficulty==='normal'?1.25:1.0;
+  let playerTanksGain=0,playerPlanesGain=0,playerPPGain=0,playerTradeGold=0;
+
+  for(const cid in gs.countries){
+    const c=gs.countries[cid];
+    const isBot=c.owner&&c.owner!=='player';
+    const mult=econMult(cid)*(isBot?aiBuff:1);
+    const cities=c.buildings.filter(b=>b.type==='city').length;
+    const factories=c.buildings.filter(b=>b.type==='factory').length;
+    const barracks=c.buildings.filter(b=>b.type==='barracks').length;
+    const courths=c.buildings.filter(b=>b.type==='courthouse').length;
+    const airbases=c.buildings.filter(b=>b.type==='airbase').length;
+    const forts=c.buildings.filter(b=>b.type==='fort').length;
+
+    const goldGain=(0.1+cities*0.05)*mult;
+    const troopGain=(0.2+factories*0.1+barracks*0.02)*mult;
+    const tankGain=factories*0.1*(isBot?aiBuff:1);
+    const planeGain=airbases*0.1*(isBot?aiBuff:1);
+    const airUpkeep=airbases*0.2;
+    const tradeBonus=c.tradeDeals.length*0.2;
+
+    if(c.tradeDeals.includes('player')&&c.owner!=='player')playerTradeGold+=0.2;
+
+    let newGold=Math.max(0,c.gold+goldGain+tradeBonus-airUpkeep);
+    let newBuildings=c.buildings;
+
+    // Diplomat relation tick
+    if(c.diplomatUntil&&now<c.diplomatUntil){
+      c.relations={...c.relations,player:(c.relations.player||0)+0.1};
+    }
+    if(c.diplomatUntil&&now>=c.diplomatUntil)c.diplomatUntil=null;
+
+    // AI build logic
+    if(c.owner&&c.owner!=='player'){
+      const total=c.buildings.length;
+      const airCount=c.buildings.filter(b=>b.type==='airbase').length;
+      const fortCount=c.buildings.filter(b=>b.type==='fort').length;
+      const isTargeted=gs.wars.some(w=>w.countryId===cid);
+      const isRich=COUNTRY_ECON_MULT[cid]&&COUNTRY_ECON_MULT[cid]>=3;
+      let next='city';
+      if(isTargeted&&fortCount<5)next='fort';
+      else if(total>=6&&airCount<(isRich?5:1))next='airbase';
+      else if(factories<=cities)next='factory';
+      else if(barracks<2)next='barracks';
+      else if(courths<1)next='courthouse';
+      const def=BUILDING_DEFS[next];
+      if(newGold>=def.cost&&total<25){newGold-=def.cost;newBuildings=[...newBuildings,{type:next,icon:def.icon}];}
+    }
+
+    if(c.owner==='player'){playerTanksGain+=tankGain;playerPlanesGain+=planeGain;playerPPGain+=courths*0.05;}
+
+    c.gold=newGold;c.troops+=troopGain;c.tanks+=tankGain;c.planes+=planeGain;c.buildings=newBuildings;
+  }
+
+  // Player resources
+  const goldLvl=gs.researchLevels.gold||0;
+  const troopLvl=gs.researchLevels.troop||0;
+  const goldMult=1+goldLvl*0.1;
+  const troopMult=1+troopLvl*0.1;
+  gs.gold+=getGoldRate()*goldMult/10+playerTradeGold;
+  gs.troops+=getTroopRate()*troopMult/10;
+  gs.tanks+=playerTanksGain;
+  gs.planes+=playerPlanesGain;
+  gs.politicalPower+=(getPPRate()/10)+playerPPGain;
+
+  // Research progress
+  if(gs.activeResearch){
+    const def=RESEARCH_DEFS.find(r=>r.id===gs.activeResearch.id);
+    if(def&&Date.now()-gs.activeResearch.startedAt>=def.dur*1000){
+      gs.researchLevels[def.id]=(gs.researchLevels[def.id]||0)+1;
+      showNotif(`✅ ${def.label} Lv${gs.researchLevels[def.id]} complete!`);
+      gs.activeResearch=null;
+    }
+  }
+
+  // Goal checks
+  checkGoals();
+  updateFills();
+}
+
+function checkGoals(){
+  const gs=gameState;
+  for(const g of GOALS){
+    if(gs.completedGoals.includes(g.id))continue;
+    let done=false;
+    const owned=Object.values(gs.countries).filter(c=>c.owner==='player');
+    if(g.id==='continent'){
+      const cont=CONTINENTS[gs.playerCountryId];
+      if(cont){const inCont=Object.keys(CONTINENTS).filter(id=>CONTINENTS[id]===cont&&gs.countries[id]);done=inCont.length>0&&inCont.every(id=>gs.countries[id]?.owner==='player');}
+    }else if(g.id==='ten'){done=owned.length>=10;}
+    else if(g.id==='twentyfive'){done=owned.length>=25;}
+    if(done){gs.completedGoals.push(g.id);gs.politicalPower+=g.reward;showNotif(`🏆 Goal: ${g.label}! +${g.reward} PP`);}
+  }
+  const remaining=GOALS.length-gameState.completedGoals.length;
+  const badge=document.getElementById('goals-badge');
+  if(badge){badge.textContent=remaining;badge.style.display=remaining>0?'flex':'none';}
+  renderGoals();
+}
+
+function battleTick(){
+  if(!battle)return;
+  const b=battle;
+  const now=Date.now();
+  const isForce=!!(b.forceAttackUntil&&now<b.forceAttackUntil);
+  const isLastStand=!!(b.lastStandUntil&&now<b.lastStandUntil);
+
+  // AI auto last stand
+  if(!b.aiLastStandUsed&&b.defender>0&&b.defender<(b.initialDefender||b.defender)*0.3){
+    b.aiLastStandUntil=now+20000;b.aiLastStandUsed=true;
+    showNotif(`🛡 ${gameState.countries[b.targetId]?.name||'Enemy'} initiated Last Stand!`);
+  }
+  const isAiLS=!!(b.aiLastStandUntil&&now<b.aiLastStandUntil);
+
+  let airBonusAtk=1,airBonusDef=1;
+  if(b.attackerPlanes>b.defenderPlanes)airBonusAtk=1.5;
+  else if(b.defenderPlanes>b.attackerPlanes)airBonusDef=1.5;
+
+  const rl=gameState.researchLevels;
+  const atkResearch=1+((rl.atk||0)*0.1);
+  const defResearch=1+((rl.def||0)*0.1);
+
+  const defCountry=gameState.countries[b.targetId];
+  const courtBonus=defCountry?1+defCountry.buildings.filter(x=>x.type==='courthouse').length*0.2:1;
+  let defMult=b.defenseMult*defResearch*airBonusDef*courtBonus;
+  if(isLastStand)defMult*=2;
+  if(isAiLS)defMult*=2;
+
+  const atkPower=(isForce?1.5:1)*atkResearch*airBonusAtk;
+  const atkEff=b.attacker+b.attackerTanks*10;
+  const ratio=atkEff/Math.max(1,b.defender);
+
+  const atkLoss=Math.ceil(b.attacker*0.01*defMult/Math.max(0.5,Math.sqrt(ratio))*(0.8+Math.random()*0.4)*(isForce?1.2:1));
+  const defLoss=Math.ceil(b.defender*0.01*Math.sqrt(ratio)/defMult*(0.8+Math.random()*0.4)*atkPower);
+  const tankLoss=Math.ceil(b.attackerTanks*0.008*(isForce?1.2:1));
+  const atkPlaneLoss=Math.ceil(b.attackerPlanes*0.005);
+  const defPlaneLoss=Math.ceil(b.defenderPlanes*0.005);
+
+  b.attacker=Math.max(0,b.attacker-atkLoss);
+  b.defender=Math.max(0,b.defender-defLoss);
+  b.attackerTanks=Math.max(0,b.attackerTanks-tankLoss);
+  b.attackerPlanes=Math.max(0,b.attackerPlanes-atkPlaneLoss);
+  b.defenderPlanes=Math.max(0,b.defenderPlanes-defPlaneLoss);
+
+  const progressSpeed=isForce?1.5:1;
+  b.progress=Math.min(100,b.progress+Math.max(0.2,Math.min(3,ratio*0.8))*progressSpeed);
+
+  const stalemate=b.progress>=100&&b.attacker>100&&b.defender>100&&Math.abs(ratio-1)<0.15;
+
+  if(b.attacker<=0||b.defender<=0||stalemate){
+    const target={...gameState.countries[b.targetId]};
+    target.troops=b.defender;
+    target.planes=Math.max(0,target.planes-b.defenderPlanes);
+    gameState.troops+=b.attacker;
+    gameState.tanks+=b.attackerTanks;
+    gameState.planes+=b.attackerPlanes;
+
+    if(b.defender<=0&&b.attacker>0){
+      target.owner='player';target.color=playerColor;
+      target.troops=Math.max(50,Math.floor(b.attacker*0.5));
+      gameState.troops-=target.troops;
+      gameState.wars=gameState.wars.filter(w=>w.countryId!==b.targetId);
+      showNotif(`🏆 Conquered ${target.name}!`);
+    }else if(b.attacker<=0){showNotif(`💀 Attack on ${target.name} failed.`);}
+    else{showNotif(`🛑 Battle for ${target.name}: stalemate.`);}
+
+    gameState.countries[b.targetId]=target;
+    battle=null;
+    document.getElementById('battle-modal').style.display='none';
+    updateFills();
+    return;
+  }
+  renderBattleModal();
+}
+
+function counterAttackTick(){
+  if(!gameState||gameState.paused)return;
+  const now=Date.now();
+  let troopLoss=0;
+  for(const w of gameState.wars){
+    if(now-w.startedAt<60000)continue;
+    if(w.lastBotAttack&&now-w.lastBotAttack<20000)continue;
+    const enemy=gameState.countries[w.countryId];
+    if(!enemy||!enemy.owner||enemy.owner==='player')continue;
+    const damage=Math.max(20,Math.floor(enemy.troops*0.25*0.25));
+    troopLoss+=damage;
+    w.lastBotAttack=now;
+    showNotif(`⚠️ ${enemy.name} counter-attacks! −${damage} troops!`);
+  }
+  if(troopLoss>0)gameState.troops=Math.max(0,gameState.troops-troopLoss);
+}
+
+function botTick(){
+  if(!gameState||gameState.paused)return;
+  const now=Date.now();
+  const gs=gameState;
+
+  // Bot research
+  for(const bot of gs.bots){
+    const owned=Object.values(gs.countries).filter(c=>c.owner===bot.id);
+    if(owned.length===0||gs.date.year<2026)continue;
+    const richest=owned.reduce((a,b)=>a.gold>b.gold?a:b);
+    if(richest.gold>60){const drain=5;richest.gold-=drain;gs.botSavings[bot.id]=(gs.botSavings[bot.id]||0)+drain;}
+    const lvls=gs.botResearch[bot.id]||{atk:0,def:0,gold:0,troop:0};
+    const branches=['atk','def','gold','troop'];
+    const tgt=branches.reduce((a,b)=>lvls[a]<=lvls[b]?a:b);
+    if(lvls[tgt]<5){const cost=1000*(lvls[tgt]+1);if((gs.botSavings[bot.id]||0)>=cost){gs.botSavings[bot.id]-=cost;gs.botResearch[bot.id]={...lvls,[tgt]:lvls[tgt]+1};}}
+  }
+
+  // AI trade offers
+  const playerCont=CONTINENTS[gs.playerCountryId];
+  for(const cid in gs.countries){
+    const c=gs.countries[cid];
+    if(!c.owner||c.owner==='player')continue;
+    if(CONTINENTS[cid]!==playerCont)continue;
+    if(c.tradeDeals.includes('player'))continue;
+    if((c.relations.player||0)<30)continue;
+    if(Math.random()<0.02){c.tradeDeals=[...c.tradeDeals,'player'];showNotif(`💰 ${c.name} offered a trade deal!`);}
+  }
+
+  // Bot wars after 2030
+  if(gs.date.year>=2030&&Math.random()<0.5){
+    const aggressors=gs.bots.filter(b=>Object.values(gs.countries).some(c=>c.owner===b.id));
+    if(aggressors.length>0){
+      const ag=aggressors[Math.floor(Math.random()*aggressors.length)];
+      const agCountries=Object.values(gs.countries).filter(c=>c.owner===ag.id);
+      outer:for(const c of agCountries){
+        const nbs=neighborsMap[c.id];
+        if(!nbs)continue;
+        for(const nbId of nbs){
+          const nb=gs.countries[nbId];
+          if(!nb||!nb.owner||nb.owner===ag.id||nb.owner==='player')continue;
+          if(c.troops<nb.troops*2)continue;
+          const force=Math.floor(c.troops*0.8);
+          const defMult=1+nb.buildings.filter(b=>b.type==='fort').length*0.02;
+          const atkLvl=gs.botResearch[ag.id]?.atk||0;
+          const defLvl=nb.owner?gs.botResearch[nb.owner]?.def||0:0;
+          const atkPow=force*(1+atkLvl*0.1);
+          const defPow=nb.troops*defMult*(1+defLvl*0.1);
+          c.troops=Math.max(50,c.troops-Math.floor(force*0.5));
+          if(atkPow>defPow){
+            nb.owner=ag.id;nb.color=COUNTRY_COLORS[ag.countryId]||ag.color;
+            nb.troops=Math.max(50,Math.floor(force*0.3));
+            showNotif(`⚔ ${ag.name} conquered ${nb.name}!`);
+            if(gs.guarantees?.includes(nbId)){const agc=agCountries[0]?.id;if(agc&&!gs.wars.some(w=>w.countryId===agc)){gs.wars=[...gs.wars,{countryId:agc,startedAt:now}];showNotif(`🛡 You guaranteed ${nb.name} — dragged into war!`);}}
+          }else{nb.troops=Math.max(50,nb.troops-Math.floor(defPow*0.2));showNotif(`🛡 ${nb.name} repelled ${ag.name}!`);}
+          break outer;
+        }
+      }
+    }
+  }
+  updateFills();
+}
+
+// ============================================================
+// HUD UPDATES
+// ============================================================
+function advanceDate(d,days){
+  let {day,month,year}={...d};
+  const dim=[31,28,31,30,31,30,31,31,30,31,30,31];
+  for(let i=0;i<days;i++){day++;if(day>dim[month]){day=1;month++;if(month>11){month=0;year++;}}}
+  return{day,month,year};
+}
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function formatDate(d){return`${d.day} ${MONTHS[d.month]} ${d.year}`}
+
+function getGoldRate(){
+  if(!gameState)return 0;
+  let r=0;
+  for(const c of Object.values(gameState.countries)){
+    if(c.owner!=='player')continue;
+    const m=econMult(c.id);
+    r+=1*m;r+=c.buildings.filter(b=>b.type==='city').length*5;r+=c.tradeDeals.length*2;
+  }
+  return Math.round(r*10)/10;
+}
+function getTroopRate(){
+  if(!gameState)return 0;
+  let r=0;
+  for(const c of Object.values(gameState.countries)){
+    if(c.owner!=='player')continue;
+    const m=econMult(c.id);
+    r+=2*m;r+=c.buildings.filter(b=>b.type==='factory').length*10;r+=c.buildings.filter(b=>b.type==='barracks').length*2;
+  }
+  return Math.round(r*10)/10;
+}
+function getPPRate(){
+  if(!gameState)return 1;
+  const owned=Object.values(gameState.countries).filter(c=>c.owner==='player');
+  const ch=owned.reduce((s,c)=>s+c.buildings.filter(b=>b.type==='courthouse').length,0);
+  return 1+owned.length*0.5+ch*0.5;
+}
+
+function updateHUD(){
+  if(!gameState)return;
+  const gs=gameState;
+  document.getElementById('date-display').textContent=formatDate(gs.date);
+  document.getElementById('speed-display').textContent=`×${gs.speed}`;
+  document.getElementById('btn-pause').textContent=gs.paused?'▶':'⏸';
+  document.getElementById('stat-troops').textContent=Math.floor(gs.troops).toLocaleString();
+  document.getElementById('stat-troop-rate').textContent=`+${getTroopRate()}/s`;
+  document.getElementById('stat-tanks').textContent=Math.floor(gs.tanks).toLocaleString();
+  document.getElementById('stat-planes').textContent=Math.floor(gs.planes).toLocaleString();
+  document.getElementById('stat-gold').textContent=Math.floor(gs.gold).toLocaleString();
+  document.getElementById('stat-gold-rate').textContent=`+${getGoldRate()}/s`;
+  document.getElementById('stat-pp').textContent=Math.floor(gs.politicalPower).toLocaleString();
+  document.getElementById('stat-pp-rate').textContent=`+${getPPRate().toFixed(1)}/s`;
+  renderLeaderboard();
+  renderAllies();
+  renderResearch();
+}
+
+function renderLeaderboard(){
+  const gs=gameState;
+  const stats={player:{name:'You',color:playerColor,countries:0,gold:gs.gold,troops:gs.troops}};
+  for(const b of gs.bots)stats[b.id]={name:b.name,color:COUNTRY_COLORS[b.countryId]||b.color,countries:0,gold:0,troops:0};
+  for(const c of Object.values(gs.countries)){if(c.owner&&stats[c.owner]){stats[c.owner].countries++;if(c.owner!=='player'){stats[c.owner].gold+=c.gold;stats[c.owner].troops+=c.troops;}}}
+  const lb=Object.entries(stats).filter(([,v])=>v.countries>0).sort((a,b)=>(b[1].troops+b[1].gold*.5)-(a[1].troops+a[1].gold*.5));
+  const visible=showFullLb?lb:lb.slice(0,5);
+  const playerEntry=lb.find(([id])=>id==='player');
+  const playerInVisible=visible.some(([id])=>id==='player');
+  const tbody=document.querySelector('#lb-table tbody');
+  tbody.innerHTML='';
+  visible.forEach(([id,v],i)=>{
+    const tr=document.createElement('tr');
+    if(id==='player')tr.className='player-row';
+    tr.innerHTML=`<td>${i+1}</td><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${v.color};margin-right:4px"></span><span style="max-width:100px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${v.name}</span></td><td>${Math.floor(v.gold).toLocaleString()}</td><td>${Math.floor(v.troops).toLocaleString()}</td>`;
+    tbody.appendChild(tr);
+  });
+  if(!showFullLb&&playerEntry&&!playerInVisible){
+    const tr=document.createElement('tr');tr.className='player-row';
+    const rank=lb.findIndex(([id])=>id==='player')+1;
+    tr.innerHTML=`<td>${rank}</td><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${playerColor};margin-right:4px"></span>You</td><td>${Math.floor(gs.gold).toLocaleString()}</td><td>${Math.floor(gs.troops).toLocaleString()}</td>`;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('lb-toggle').textContent=showFullLb?'Show less ▲':`Show all (${lb.length}) ▼`;
+}
+function toggleFullLb(){showFullLb=!showFullLb;renderLeaderboard();}
+
+function renderAllies(){
+  const gs=gameState;
+  const panel=document.getElementById('hud-allies');
+  if(gs.alliances.length===0){panel.style.display='none';return;}
+  panel.style.display='block';
+  const list=document.getElementById('allies-list');
+  list.innerHTML=gs.alliances.map(id=>{
+    const bot=gs.bots.find(b=>b.id===id);if(!bot)return'';
+    return`<div style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:2px"><span style="width:8px;height:8px;border-radius:50%;background:${COUNTRY_COLORS[bot.countryId]||bot.color};display:inline-block"></span>${bot.name}</div>`;
+  }).join('');
+}
+
+function renderResearch(){
+  const gs=gameState;
+  const el=document.getElementById('research-content');
+  if(!el)return;
+  let html='';
+  if(gs.activeResearch){
+    const def=RESEARCH_DEFS.find(r=>r.id===gs.activeResearch.id);
+    if(def){const pct=Math.min(100,(Date.now()-gs.activeResearch.startedAt)/(def.dur*1000)*100);
+    html+=`<div style="background:#1a2030;border-radius:8px;padding:8px;margin-bottom:8px"><div style="font-size:11px;color:#22d3ee;font-weight:700">Researching: ${def.label}</div><div style="height:4px;background:#0f1420;border-radius:2px;margin-top:4px"><div style="height:100%;width:${pct}%;background:#22d3ee;border-radius:2px"></div></div><div style="font-size:10px;color:#6b7280;text-align:right;margin-top:2px">${Math.ceil((def.dur*1000-(Date.now()-gs.activeResearch.startedAt))/1000)}s left</div></div>`;}
+  }
+  html+=`<p style="font-size:10px;color:#6b7280;margin-bottom:8px">Each branch can be leveled up to 5 times (+10% per level).</p>`;
+  for(const r of RESEARCH_DEFS){
+    const lvl=gs.researchLevels[r.id]||0;const maxed=lvl>=5;const isActive=gs.activeResearch?.id===r.id;
+    const cost=r.cost*(lvl+1);const canStart=!maxed&&!gs.activeResearch&&gs.gold>=cost;
+    html+=`<div class="research-item${maxed?' done':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:13px;font-weight:700">${r.label} <span style="color:#22d3ee">Lv ${lvl}/5</span>${maxed?' ✅':''}</div>
+        <div style="font-size:10px;color:#6b7280">${r.desc} · +${lvl*10}%</div>
+        <div style="font-size:10px;color:#eab308">${cost}g · ${r.dur}s</div></div>
+        <button onclick="startResearch('${r.id}')" style="padding:4px 8px;border-radius:6px;background:#0e7490;border:none;cursor:pointer;color:#fff;font-size:11px;white-space:nowrap" ${(!canStart||isActive)?'disabled':''}>
+          ${maxed?'Max':isActive?'Active':`Lv ${lvl+1}`}</button>
+      </div></div>`;
+  }
+  el.innerHTML=html;
+}
+
+function startResearch(id){
+  const gs=gameState;if(!gs)return;
+  const def=RESEARCH_DEFS.find(r=>r.id===id);if(!def)return;
+  const lvl=gs.researchLevels[id]||0;if(lvl>=5||gs.activeResearch)return;
+  const cost=def.cost*(lvl+1);if(gs.gold<cost)return;
+  gs.gold-=cost;gs.activeResearch={id,startedAt:Date.now()};
+  showNotif(`🔬 Researching ${def.label} Lv ${lvl+1}...`);renderResearch();
+}
+
+function renderGoals(){
+  const gs=gameState;if(!gs)return;
+  const el=document.getElementById('goals-content');if(!el)return;
+  let html='';
+  for(const g of GOALS){
+    const done=gs.completedGoals.includes(g.id);
+    let prog='';
+    if(g.id==='continent'){const cont=CONTINENTS[gs.playerCountryId];if(cont){const inC=Object.keys(CONTINENTS).filter(id=>CONTINENTS[id]===cont&&gs.countries[id]);const owned=inC.filter(id=>gs.countries[id]?.owner==='player').length;prog=`${owned}/${inC.length} (${CONTINENT_NAMES[cont]})`;}}
+    else if(g.id==='ten'){const c=Object.values(gs.countries).filter(c=>c.owner==='player').length;prog=`${c}/10`;}
+    else if(g.id==='twentyfive'){const c=Object.values(gs.countries).filter(c=>c.owner==='player').length;prog=`${c}/25`;}
+    html+=`<div class="goal-item${done?' done':''}"><div style="font-weight:700;font-size:13px">${g.label}${done?' ✅':''}</div><div style="font-size:11px;color:#6b7280">${g.desc}</div><div style="font-size:11px;color:#22d3ee">${prog} · +${g.reward} PP</div></div>`;
+  }
+  el.innerHTML=html;
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+function togglePause(){if(gameState)gameState.paused=!gameState.paused;}
+function changeSpeed(d){if(!gameState)return;gameState.speed=Math.max(1,Math.min(5,gameState.speed+d));}
+function exitGame(){
+  clearInterval(gameLoop);clearInterval(battleLoop);clearInterval(botLoop);
+  gameState=null;battle=null;features=[];neighborsMap={};svgD3=null;
+  document.getElementById('game-screen').style.display='none';
+  document.getElementById('map-group').innerHTML='';
+  document.getElementById('menu').style.display='flex';
+}
+
+document.addEventListener('keydown',e=>{
+  if(!gameState)return;
+  if(e.key===' '){e.preventDefault();togglePause();return;}
+  if(e.key==='Escape'){setSelectedBuilding(null);hideCtxMenu();setInspect(null);return;}
+  const n=parseInt(e.key);
+  if(n>=1&&n<=BUILDING_SLOTS.length){const bt=BUILDING_SLOTS[n-1];setSelectedBuilding(selectedBuilding===bt?null:bt);return;}
+  if(!svgD3||!zoomBehavior)return;
+  const g=d3.select('#map-group');
+  const pan=50;let dx=0,dy=0;
+  if(e.key==='w'||e.key==='ArrowUp')dy=pan;
+  if(e.key==='s'||e.key==='ArrowDown')dy=-pan;
+  if(e.key==='a'||e.key==='ArrowLeft')dx=pan;
+  if(e.key==='d'||e.key==='ArrowRight')dx=-pan;
+  if(dx||dy)svgD3.transition().duration(80).call(zoomBehavior.translateBy,dx,dy);
+});
+
+// ============================================================
+// MAP INTERACTIONS
+// ============================================================
+function handleMapClick(e){
+  if(document.getElementById('ctx-menu').style.display!=='none'){hideCtxMenu();return;}
+  const target=e.target.closest('path.country-path');if(!target||!gameState)return;
+  const id=target.getAttribute('data-id');
+  const country=gameState.countries[id];if(!country)return;
+
+  if(selectedBuilding&&country.owner==='player'){
+    const def=BUILDING_DEFS[selectedBuilding];
+    if(def.coastal&&!country.isCoastal){showNotif(`${def.label} requires a coastal country!`);return;}
+    if(gameState.gold<def.cost){showNotif(`Not enough gold! Need ${def.cost}`);return;}
+    country.buildings=[...country.buildings,{type:selectedBuilding,icon:def.icon}];
+    gameState.gold-=def.cost;
+    showNotif(`${def.icon} ${def.label} placed in ${country.name}!`);
+    setSelectedBuilding(null);
+  }
+}
+
+function handleRightClick(e){
+  e.preventDefault();
+  const target=e.target.closest('path.country-path');if(!target||!gameState)return;
+  const id=target.getAttribute('data-id');
+  const country=gameState.countries[id];if(!country||country.owner==='player')return;
+  showCtxMenu(e.clientX,e.clientY,id);
+}
+
+// ============================================================
+// CONTEXT MENU
+// ============================================================
+function showCtxMenu(x,y,cid){
+  contextMenuTarget=cid;
+  const gs=gameState;const c=gs.countries[cid];if(!c)return;
+  const isAlly=!!(c.owner&&gs.alliances.includes(c.owner));
+  const hasGoal=gs.warGoals.includes(cid);
+  const atWar=gs.wars.some(w=>w.countryId===cid);
+  const rel=c.relations.player||0;
+
+  let html=`<div class="ctx-header">${cflag(cid)} ${c.name}</div>`;
+  html+=`<button class="ctx-btn" onclick="doAction('inspect')">👁 Inspect</button>`;
+  html+=`<button class="ctx-btn" onclick="doAction('improve')">🤝 Improve Relations (${PP_COSTS.improve} PP)</button>`;
+  html+=`<button class="ctx-btn" onclick="doAction('diplomat')">📨 Send Diplomat (${PP_COSTS.diplomat} PP)</button>`;
+  html+=`<button class="ctx-btn" onclick="doAction('trade')">💰 Request Trade Deal (${PP_COSTS.trade} PP)</button>`;
+  html+=`<button class="ctx-btn" onclick="doAction('guarantee')">🛡 Guarantee Independence (${PP_COSTS.guarantee} PP)</button>`;
+  html+=`<button class="ctx-btn" onclick="doAction('justify')" ${isAlly||hasGoal||atWar?'disabled':''}>📜 Justify War Goal${hasGoal?' ✅':` (${PP_COSTS.justify} PP)`}</button>`;
+  if(isAlly){
+    html+=`<button class="ctx-btn cyan" onclick="doAction('requestTroops')">🪖 Request Troops (yearly)</button>`;
+    html+=`<button class="ctx-btn" onclick="doAction('breakAlliance')">💔 Break Alliance (${PP_COSTS.breakAlliance} PP)</button>`;
+  }else{
+    html+=`<button class="ctx-btn" onclick="doAction('ally')">🕊 Request Alliance (rel ${rel}/70)</button>`;
+  }
+  html+=`<div class="ctx-sep"></div>`;
+  if(atWar){
+    html+=`<button class="ctx-btn red" onclick="doAction('attack')">⚔ Attack!</button>`;
+    html+=`<button class="ctx-btn green" onclick="doAction('makePeace')">🕊 Make Peace (20 PP)</button>`;
+  }else{
+    html+=`<button class="ctx-btn red" onclick="doAction('declareWar')" ${isAlly||!hasGoal?'disabled':''}>⚔ Declare War (${PP_COSTS.declareWar} PP)</button>`;
+  }
+
+  const menu=document.getElementById('ctx-menu');
+  menu.innerHTML=html;
+  menu.style.left=Math.min(x,window.innerWidth-240)+'px';
+  menu.style.top=Math.min(y,Math.max(8,window.innerHeight-500))+'px';
+  menu.style.display='block';
+}
+function hideCtxMenu(){document.getElementById('ctx-menu').style.display='none';contextMenuTarget=null;}
+document.addEventListener('click',e=>{if(!e.target.closest('#ctx-menu'))hideCtxMenu();});
+
+function doAction(action){
+  const cid=contextMenuTarget;hideCtxMenu();
+  if(!cid||!gameState)return;
+  const gs=gameState;const c=gs.countries[cid];if(!c)return;
+  if(action!=='inspect'){
+    const cost=PP_COSTS[action]||0;
+    if(gs.politicalPower<cost){showNotif(`Not enough PP! Need ${cost}`);return;}
+  }
+  switch(action){
+    case 'inspect':setInspect(cid);break;
+    case 'improve':
+      gs.politicalPower-=PP_COSTS.improve;
+      c.relations={...c.relations,player:(c.relations.player||0)+10};
+      showNotif(`Relations improved with ${c.name} (+10)`);break;
+    case 'trade':
+      if(gs.gold<50){showNotif('Need 50 gold for trade deal!');return;}
+      if(c.tradeDeals.includes('player')){showNotif('Already have trade deal!');return;}
+      gs.gold-=50;gs.politicalPower-=PP_COSTS.trade;c.tradeDeals=[...c.tradeDeals,'player'];
+      showNotif(`Trade deal with ${c.name}! +2 gold/s`);break;
+    case 'guarantee':
+      gs.politicalPower-=PP_COSTS.guarantee;
+      if(!gs.guarantees)gs.guarantees=[];
+      if(!gs.guarantees.includes(cid))gs.guarantees.push(cid);
+      showNotif(`🛡 Guaranteed independence of ${c.name}`);break;
+    case 'diplomat':
+      gs.politicalPower-=PP_COSTS.diplomat;c.diplomatUntil=Date.now()+100000;
+      showNotif(`📨 Diplomat sent to ${c.name}: +1 relation/s for 100s`);break;
+    case 'ally':{
+      if(!c.owner){showNotif(`${c.name} is unowned.`);return;}
+      const rel=c.relations.player||0;
+      if(rel<70){showNotif(`❌ ${c.name} rejected alliance. Need 70+ relations (${rel})`);return;}
+      if(gs.alliances.includes(c.owner)){showNotif(`Already allied!`);return;}
+      gs.politicalPower-=PP_COSTS.ally;gs.alliances=[...gs.alliances,c.owner];
+      showNotif(`✅ Alliance with ${c.name}!`);updateFills();break;}
+    case 'breakAlliance':{
+      const oid=c.owner;if(!oid||!gs.alliances.includes(oid)){showNotif('Not allied.');return;}
+      gs.politicalPower-=PP_COSTS.breakAlliance;gs.alliances=gs.alliances.filter(a=>a!==oid);
+      showNotif(`💔 Alliance broken.`);updateFills();break;}
+    case 'justify':
+      if(gs.warGoals.includes(cid)){showNotif('Already justified.');return;}
+      if(c.owner&&gs.alliances.includes(c.owner)){showNotif('Break alliance first!');return;}
+      gs.politicalPower-=PP_COSTS.justify;gs.warGoals=[...gs.warGoals,cid];
+      c.relations={...c.relations,player:(c.relations.player||0)-20};
+      showNotif(`📜 War goal justified on ${c.name}`);break;
+    case 'declareWar':
+      if(c.owner&&gs.alliances.includes(c.owner)){showNotif('Break alliance first!');return;}
+      if(!gs.warGoals.includes(cid)){showNotif('Justify a war goal first!');return;}
+      if(gs.wars.some(w=>w.countryId===cid)){showNotif('Already at war!');return;}
+      gs.politicalPower-=PP_COSTS.declareWar;gs.wars=[...gs.wars,{countryId:cid,startedAt:Date.now()}];
+      c.relations={...c.relations,player:(c.relations.player||0)-80};
+      showNotif(`⚔ WAR DECLARED on ${c.name}!`);updateFills();break;
+    case 'attack':
+      if(!gs.wars.some(w=>w.countryId===cid)){showNotif('Not at war!');return;}
+      showAttackModal(cid);break;
+    case 'makePeace':
+      if(!gs.wars.some(w=>w.countryId===cid)){showNotif('Not at war.');return;}
+      gs.politicalPower-=20;gs.wars=gs.wars.filter(w=>w.countryId!==cid);
+      gs.warGoals=gs.warGoals.filter(w=>w!==cid);
+      c.relations={...c.relations,player:Math.min((c.relations.player||0)+30,0)};
+      showNotif(`🕊 Peace made with ${c.name}`);break;
+    case 'requestTroops':{
+      const oid=c.owner;if(!oid||!gs.alliances.includes(oid)){showNotif('Not your ally.');return;}
+      if(lastTroopRequestYear>=gs.date.year){showNotif(`Can only request once per year!`);return;}
+      const rel=c.relations.player||0;const chance=Math.min(0.9,Math.max(0.1,rel/220));
+      if(Math.random()<chance){const gained=Math.floor(c.troops*0.05);gs.troops+=gained;c.troops=Math.max(0,c.troops-gained);lastTroopRequestYear=gs.date.year;showNotif(`✅ ${c.name} sent ${gained} troops!`);}
+      else{lastTroopRequestYear=gs.date.year;showNotif(`❌ ${c.name} refused to send troops.`);}
+      break;}
+  }
+}
+
+// ============================================================
+// INSPECT PANEL
+// ============================================================
+function setInspect(id){
+  inspectId=id;
+  const panel=document.getElementById('inspect-panel');
+  if(!id){panel.style.display='none';return;}
+  const gs=gameState;const c=gs.countries[id];if(!c){panel.style.display='none';return;}
+  const mult=econMult(id);
+  const cities=c.buildings.filter(b=>b.type==='city').length;
+  const factories=c.buildings.filter(b=>b.type==='factory').length;
+  const goldPerSec=((0.1+cities*0.05)*mult+c.tradeDeals.length*0.2)*10;
+  const troopsPerSec=(0.2+factories*0.1)*mult*10;
+  const ownerId=c.owner;
+  const lvls=ownerId==='player'?gs.researchLevels:(ownerId?gs.botResearch?.[ownerId]:null);
+
+  let ownerLabel=c.owner?c.owner==='player'?'You':gs.bots.find(b=>b.id===c.owner)?.name||'Unknown':'Unowned';
+  let html=`<div style="display:flex;justify-content:space-between;margin-bottom:12px"><strong style="font-size:15px">${cflag(id)} ${c.name}</strong><button class="close-btn" onclick="setInspect(null)">✕</button></div>`;
+  html+=`<div style="font-size:13px;display:flex;flex-direction:column;gap:4px;color:#d1d5db">
+    <div>Owner: <strong style="color:#fff">${ownerLabel}</strong>${ownerId&&ownerId!=='player'&&gs.alliances.includes(ownerId)?' <span style="color:#22d3ee">🕊 Ally</span>':''}</div>
+    <div>Troops: <strong>${Math.floor(c.troops)}</strong> <span style="color:#4ade80">(+${troopsPerSec.toFixed(1)}/s)</span></div>
+    <div>Gold: <strong>${Math.floor(c.gold)}</strong> <span style="color:#eab308">(+${goldPerSec.toFixed(1)}/s)</span></div>
+    <div>Buildings: <strong>${c.buildings.length>0?c.buildings.map(b=>b.icon).join(' '):'None'}</strong></div>
+    <div>Relations: <strong>${Math.floor(c.relations.player||0)}</strong></div>
+    <div>Trade Deals: <strong>${c.tradeDeals.length}</strong></div>
+    <div>Coastal: <strong>${c.isCoastal?'Yes':'No'}</strong></div>`;
+  if(lvls){html+=`<div style="border-top:1px solid #4a5568;margin-top:6px;padding-top:6px"><div style="font-size:11px;color:#22d3ee;font-weight:700;margin-bottom:4px">🔬 Research</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:11px">
+    <div>Atk: Lv ${lvls.atk||0}/5</div><div>Def: Lv ${lvls.def||0}/5</div>
+    <div>Gold: Lv ${lvls.gold||0}/5</div><div>Troop: Lv ${lvls.troop||0}/5</div></div></div>`;}
+  html+='</div>';
+  panel.innerHTML=html;
+  panel.style.display='block';
+}
+
+// ============================================================
+// ATTACK / BATTLE
+// ============================================================
+function showAttackModal(cid){
+  attackTarget=cid;
+  const gs=gameState;const c=gs.countries[cid];if(!c)return;
+  const playerOwnedIds=new Set(Object.values(gs.countries).filter(x=>x.owner==='player').map(x=>x.id));
+  const nbs=neighborsMap[cid]||new Set();
+  const borders=Array.from(nbs).some(n=>playerOwnedIds.has(n));
+  const playerPorts=Object.values(gs.countries).filter(x=>x.owner==='player').reduce((s,x)=>s+x.buildings.filter(b=>b.type==='port').length,0);
+  const navalCap=playerPorts*1000;
+  const targetCoastal=c.isCoastal!==false;
+  const navalBlocked=!borders&&!targetCoastal;
+  const maxAtkRaw=Math.floor(gs.troops);
+  const maxAtk=borders?maxAtkRaw:Math.min(maxAtkRaw,navalCap);
+  const fortCount=c.buildings.filter(b=>b.type==='fort').length;
+  const defMult=1+fortCount*0.02;
+  const courtCount=c.buildings.filter(b=>b.type==='courthouse').length;
+  let defaultTroops=Math.min(maxAtk,Math.max(100,Math.floor(maxAtk/2)));
+
+  const modal=document.getElementById('attack-modal');
+  const content=document.getElementById('attack-modal-content');
+  content.innerHTML=`
+    <div class="modal-header"><strong style="font-size:16px">⚔ Attack ${c.name}</strong><button class="close-btn" onclick="closeAttackModal()">✕</button></div>
+    <div style="font-size:13px;color:#d1d5db;display:flex;flex-direction:column;gap:6px">
+      <div>Defender: <span style="color:#f87171;font-weight:700">${Math.floor(c.troops)}</span> troops | Planes: <span style="color:#22d3ee">${Math.floor(c.planes)}</span></div>
+      <div>Forts: ${fortCount} <span style="color:#6b7280">(+${fortCount*2}% defense)</span>${courtCount>0?` | Courthouses: ${courtCount} (+${courtCount*20}% def)`:''}</div>
+      ${!borders?`<div style="background:${navalBlocked?'rgba(127,29,29,0.3)':'rgba(30,58,138,0.3)'};border-radius:6px;padding:6px;font-size:12px">${navalBlocked?'🚫 Cannot reach — no land border and landlocked target':`⚓ Naval invasion: ${playerPorts} port(s) → max ${navalCap} troops`}</div>`:''}
+      <div>Your troops: <span style="color:#4ade80;font-weight:700">${maxAtkRaw}</span> | Tanks: <span style="color:#eab308">${Math.floor(gs.tanks)}</span> | Planes: <span style="color:#22d3ee">${Math.floor(gs.planes)}</span></div>
+      <div style="margin-top:4px">
+        <label style="font-size:12px;color:#9ca3af">Send troops: <strong id="atk-troop-val" style="color:#fff">${defaultTroops}</strong> / ${maxAtk}</label>
+        <input type="range" id="atk-slider" min="1" max="${Math.max(1,maxAtk)}" value="${defaultTroops}" style="width:100%;margin-top:4px" oninput="document.getElementById('atk-troop-val').textContent=this.value" ${navalBlocked||maxAtk<1?'disabled':''}>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-dark" style="padding:10px" onclick="closeAttackModal()">Cancel</button>
+      <button class="btn btn-orange" style="padding:10px;flex:1;background:#dc2626;font-size:13px" onclick="launchAttack('${cid}')" ${navalBlocked||maxAtk<1?'disabled':''}>⚔ Launch Attack (all tanks & planes)</button>
+    </div>`;
+  modal.style.display='flex';
+}
+function closeAttackModal(){document.getElementById('attack-modal').style.display='none';attackTarget=null;}
+
+function launchAttack(cid){
+  const gs=gameState;const c=gs.countries[cid];if(!c)return;
+  const slider=document.getElementById('atk-slider');
+  const sendTroops=parseInt(slider.value)||0;if(sendTroops<1)return;
+  const fortCount=c.buildings.filter(b=>b.type==='fort').length;
+  const defMult=1+fortCount*0.02;
+  const maxTanks=Math.floor(gs.tanks);const maxPlanes=Math.floor(gs.planes);
+  gs.troops-=sendTroops;gs.tanks=0;gs.planes=0;
+  battle={targetId:cid,attacker:sendTroops,defender:Math.floor(c.troops),attackerTanks:maxTanks,attackerPlanes:maxPlanes,defenderPlanes:Math.floor(c.planes),progress:0,defenseMult:defMult,initialDefender:Math.floor(c.troops),aiLastStandUsed:false};
+  closeAttackModal();
+  document.getElementById('battle-modal').style.display='block';
+  renderBattleModal();
+}
+
+function renderBattleModal(){
+  if(!battle)return;
+  const b=battle;const gs=gameState;const target=gs.countries[b.targetId];if(!target)return;
+  const total=b.attacker+b.defender||1;const atkPct=(b.attacker/total)*100;
+  const totalP=b.attackerPlanes+b.defenderPlanes||1;const atkAirPct=(b.attackerPlanes/totalP)*100;
+  const now=Date.now();
+  document.getElementById('battle-modal').innerHTML=`
+    <div style="font-weight:700;text-align:center;margin-bottom:8px">⚔ Battle for ${target.name}</div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
+      <span style="color:#4ade80">You: ${Math.floor(b.attacker)} 👥 +${Math.floor(b.attackerTanks)} 🚜</span>
+      <span style="color:#f87171">${target.name}: ${Math.floor(b.defender)} 👥</span>
+    </div>
+    <div class="bar-wrap"><div class="bar-fill" style="width:${atkPct}%;background:#22c55e"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:6px;margin-bottom:2px">
+      <span style="color:#22d3ee">✈ You: ${Math.floor(b.attackerPlanes)}</span>
+      <span style="color:#f97316">✈ Enemy: ${Math.floor(b.defenderPlanes)}</span>
+    </div>
+    <div class="bar-wrap" style="height:6px"><div class="bar-fill" style="width:${atkAirPct}%;background:#22d3ee"></div></div>
+    <div style="font-size:10px;text-align:center;margin:4px 0;color:${b.attackerPlanes>b.defenderPlanes?'#22d3ee':b.defenderPlanes>b.attackerPlanes?'#f97316':'#6b7280'}">${b.attackerPlanes>b.defenderPlanes?'✈ Air Superiority (you) +50% atk':b.defenderPlanes>b.attackerPlanes?'✈ Air Superiority (enemy) +50% def':'Air contested'}</div>
+    <div style="font-size:10px;color:#6b7280;margin-bottom:2px">Battle Progress</div>
+    <div class="bar-wrap" style="margin-bottom:8px"><div class="bar-fill" style="width:${b.progress}%;background:#f97316"></div></div>
+    ${b.forceAttackUntil&&now<b.forceAttackUntil?`<div style="font-size:10px;color:#fb923c;text-align:center">🔥 FORCE ATTACK (${Math.ceil((b.forceAttackUntil-now)/1000)}s)</div>`:''}
+    ${b.lastStandUntil&&now<b.lastStandUntil?`<div style="font-size:10px;color:#60a5fa;text-align:center">🛡 LAST STAND (${Math.ceil((b.lastStandUntil-now)/1000)}s)</div>`:''}
+    ${b.aiLastStandUntil&&now<b.aiLastStandUntil?`<div style="font-size:10px;color:#f87171;text-align:center">🛡 ENEMY LAST STAND (${Math.ceil((b.aiLastStandUntil-now)/1000)}s)</div>`:''}
+    <div style="display:flex;gap:4px;margin-top:8px">
+      <button style="flex:1;padding:6px;border-radius:6px;background:#4b5563;border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700" onclick="retreatBattle()">🏳 Retreat</button>
+      <button style="flex:1;padding:6px;border-radius:6px;background:#c2410c;border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700" onclick="activateForce()" ${!gs||gs.politicalPower<50||b.forceAttackUntil&&now<b.forceAttackUntil?'disabled':''}>🔥 Force (50PP)</button>
+      <button style="flex:1;padding:6px;border-radius:6px;background:#1d4ed8;border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700" onclick="activateLastStand()" ${!gs||gs.politicalPower<50||b.lastStandUntil&&now<b.lastStandUntil?'disabled':''}>🛡 Last Stand (50PP)</button>
+    </div>`;
+}
+function retreatBattle(){if(!battle)return;gameState.troops+=battle.attacker;gameState.tanks+=battle.attackerTanks;gameState.planes+=battle.attackerPlanes;battle=null;document.getElementById('battle-modal').style.display='none';showNotif('🏳 Retreated.');}
+function activateForce(){if(!battle||!gameState||gameState.politicalPower<50)return;gameState.politicalPower-=50;battle.forceAttackUntil=Date.now()+15000;showNotif('🔥 Force Attack activated!');}
+function activateLastStand(){if(!battle||!gameState||gameState.politicalPower<50)return;gameState.politicalPower-=50;battle.lastStandUntil=Date.now()+20000;showNotif('🛡 Last Stand activated!');}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+function showNotif(msg){
+  if(gameState)gameState.notifications=[{id:Date.now()+Math.random(),message:msg,timestamp:Date.now()},...(gameState.notifications||[])].slice(0,100);
+  const el=document.getElementById('notification');
+  el.textContent=msg;el.style.display='block';
+  clearTimeout(notifTimer);notifTimer=setTimeout(()=>el.style.display='none',2500);
+  // Update notif panel if open
+  const np=document.getElementById('notif-content');
+  if(np&&gameState){np.innerHTML=(gameState.notifications||[]).map(n=>`<div style="background:#1a2030;border-radius:6px;padding:6px 8px"><div>${n.message}</div><div style="font-size:9px;color:#6b7280;margin-top:2px">${new Date(n.timestamp).toLocaleTimeString()}</div></div>`).join('');}
+}
+
+// ============================================================
+// ADVISOR
+// ============================================================
+async function sendAdvisorMsg(){
+  const input=document.getElementById('advisor-input');
+  const msg=input.value.trim();if(!msg||advisorLoading)return;
+  input.value='';
+  advisorMessages=[...advisorMessages,{role:'user',content:msg}];
+  renderAdvisor();
+  advisorLoading=true;
+  document.getElementById('advisor-send').disabled=true;
+
+  const gs=gameState;
+  const ctx={
+    date:gs?formatDate(gs.date):'N/A',
+    playerCountry:gs?cname(gs.playerCountryId):'N/A',
+    gold:gs?Math.floor(gs.gold):0,troops:gs?Math.floor(gs.troops):0,
+    ownedCountries:gs?Object.values(gs.countries).filter(c=>c.owner==='player').map(c=>c.name):[],
+  };
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:1000,
+        system:`You are a strategic military advisor in the grand strategy game Territorial Wars. Current game state: ${JSON.stringify(ctx)}. Give concise, tactical advice. Keep responses under 150 words.`,
+        messages:advisorMessages,
+      })
+    });
+    const data=await resp.json();
+    const text=data.content?.map(i=>i.text||'').join('')||'Advisor unavailable.';
+    advisorMessages=[...advisorMessages,{role:'assistant',content:text}];
+  }catch{
+    advisorMessages=[...advisorMessages,{role:'assistant',content:'Advisor unavailable. Check your connection.'}];
+  }
+  advisorLoading=false;
+  document.getElementById('advisor-send').disabled=false;
+  renderAdvisor();
+}
+
+function renderAdvisor(){
+  const msgs=document.getElementById('advisor-msgs');
+  if(advisorMessages.length===0){msgs.innerHTML='<div style="color:#6b7280;font-size:12px;text-align:center;margin-top:30px">Ask for strategic advice...</div>';return;}
+  msgs.innerHTML=advisorMessages.map(m=>`<div class="advisor-msg ${m.role}">${m.content}</div>`).join('');
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+// ============================================================
+// UTILITY
+// ============================================================
+window.hideModal=hideModal;
+window.togglePanel=togglePanel;
+window.toggleAdvisor=toggleAdvisor;
+window.toggleFullLb=toggleFullLb;
+window.togglePause=togglePause;
+window.changeSpeed=changeSpeed;
+window.exitGame=exitGame;
+window.doAction=doAction;
+window.retreatBattle=retreatBattle;
+window.activateForce=activateForce;
+window.activateLastStand=activateLastStand;
+window.launchAttack=launchAttack;
+window.closeAttackModal=closeAttackModal;
+window.setInspect=setInspect;
+window.startResearch=startResearch;
+window.sendAdvisorMsg=sendAdvisorMsg;
+
+</script>
+</body>
+</html>
