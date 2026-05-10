@@ -58,23 +58,17 @@ export function initGameState(
     "250", "826", "586", "682", "124", "276", // secondaries: FR, UK, PK, SA, CA, DE
   ];
 
-  const available = BOT_COUNTRY_POOL.filter(
-    (id) => id !== playerCountryId && allCountryIds.includes(id)
-  );
-  // Force priority powers first, then fill the rest randomly
-  const priority = PRIORITY_POWERS.filter(
-    (id) => id !== playerCountryId && allCountryIds.includes(id)
-  );
-  // Skip countries reserved by other human players
+  // Assign EVERY country (not just BOT_COUNTRY_POOL) so no nation is unowned.
   const reserved = opts?.reservedOwners || {};
   const reservedIds = new Set(Object.keys(reserved));
-  const rest = available.filter((id) => !priority.includes(id) && !reservedIds.has(id));
-  const filteredPriority = priority.filter((id) => !reservedIds.has(id));
+  const allAvailable = allCountryIds.filter(
+    (id) => id !== playerCountryId && !reservedIds.has(id) && !["010"].includes(id)
+  );
+  const priority = PRIORITY_POWERS.filter((id) => allAvailable.includes(id));
+  const rest = allAvailable.filter((id) => !priority.includes(id));
   const shuffledRest = [...rest].sort(() => rand() - 0.5);
-  const botAssignments = [
-    ...filteredPriority,
-    ...shuffledRest,
-  ].slice(0, Math.min(botCount, filteredPriority.length + shuffledRest.length));
+  const botAssignments = [...priority, ...shuffledRest];
+  void botCount;
 
   const bots: BotState[] = botAssignments.map((countryId, i) => ({
     id: `bot-${i}`,
