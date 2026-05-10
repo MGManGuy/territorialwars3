@@ -2263,6 +2263,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                 }}
                 className="flex-1 px-2 py-1.5 rounded bg-gray-600 hover:bg-gray-700 text-white text-xs font-bold"
               >🏳 Retreat</button>
+              <div className="flex gap-2 mt-3">
               <button
                 onClick={() => {
                   if (!gameState || gameState.politicalPower < 50) { showNotif("Need 50 PP!"); return; }
@@ -2271,18 +2272,19 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                   setBattle((b) => b ? { ...b, forceAttackUntil: Date.now() + 15000 } : b);
                   showNotif("🔥 Force Attack activated! +50% power, +20% losses for 15s");
                 }}
-                disabled={!gameState || gameState.politicalPower < 50 || !!(battle.forceAttackUntil && Date.now() < battle.forceAttackUntil)}
+                disabled={!gameState || gameState.politicalPower < 50 || (!!battle.forceAttackUntil && Date.now() < battle.forceAttackUntil)}
                 className="flex-1 px-2 py-1.5 rounded bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold disabled:opacity-50"
               >🔥 Force (50PP)</button>
+              
               <button
                 onClick={() => {
                   if (!gameState || gameState.politicalPower < 50) { showNotif("Need 50 PP!"); return; }
                   if (battle.lastStandUntil && Date.now() < battle.lastStandUntil) { showNotif("Already active!"); return; }
                   setGameState((prev) => prev ? { ...prev, politicalPower: prev.politicalPower - 50 } : prev);
                   setBattle((b) => b ? { ...b, lastStandUntil: Date.now() + 20000 } : b);
-                  showNotif("🛡 Last Stand activated! +100% defense, +35% losses for 20s");
+                  showNotif("🛡 Last Stand activated! +100% defense for 20s");
                 }}
-                disabled={!gameState || gameState.politicalPower < 50 || !!(battle.lastStandUntil && Date.now() < battle.lastStandUntil)}
+                disabled={!gameState || gameState.politicalPower < 50 || (!!battle.lastStandUntil && Date.now() < battle.lastStandUntil)}
                 className="flex-1 px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50"
               >🛡 Last Stand (50PP)</button>
             </div>
