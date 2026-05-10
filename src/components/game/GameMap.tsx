@@ -182,59 +182,43 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
         });
         humanByOwnerKeyRef.current = humanMap;
       }
-      const topo: Topology = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json").then(r => r.json());
+     const topo: Topology = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json").then(r => r.json());
       if (cancelled) return;
-        const geo = feature(topo, topo.objects.countries as GeometryCollection) as unknown as FeatureCollection;
-        const feats = geo.features.filter((f) => !EXCLUDED.includes(f.id as string));
-        setFeatures(feats);
-        featuresRef.current = feats;
-        const allIds = feats.map((f) => f.id as string);
 
-        // Build neighbor index from topojson
-        const allObjects = (topo.objects.countries as any).geometries;
-        const nbArrays = topoNeighbors(allObjects);
-        const nbMap: Record<string, Set<string>> = {};
-        allObjects.forEach((obj: any, i: number) => {
-          const id = obj.id as string;
-          if (!id) return;
-          nbMap[id] = new Set(nbArrays[i].map((j: number) => allObjects[j].id).filter(Boolean));
-        });
-        neighborsRef.current = nbMap;
+      const geo = feature(topo, topo.objects.countries as GeometryCollection) as unknown as FeatureCollection;
+      const feats = geo.features.filter((f) => !EXCLUDED.includes(f.id as string));
+      setFeatures(feats);
+      featuresRef.current = feats;
+      const allIds = feats.map((f) => f.id as string);
 
-        const gs = initGameState(playerCountryId, allIds, allIds.length, { seed, reservedOwners });
-        // Mark coastal countries: a country is coastal if it has fewer neighbors than the
-        // number of its land borders would suggest. Heuristic: any country with <= 2 neighbors
-        // is coastal/island; otherwise check via ocean test by sampling. Simpler: use a known list
-        // of large landlocked countries.
-        const LANDLOCKED = new Set([
-          "040","051","031","064","068","112","072","854","108","140","148","203","268","348",
-          "398","417","418","442","426","454","466","478","496","524","562","620","646","686",
-          "688","705","703","728","748","762","795","800","860","807","716","894","499","268",
-        ]);
-        for (const id of allIds) {
-  const country = gs.countries[id];
-  if (country) {
-    country.isCoastal = !LANDLOCKED.has(id);
-    
-    // Tag specific big countries as "Cities" (Capital provinces)
-    // You can add more IDs to this list to make more cities
-    const capitals = ["840", "156", "643", "250", "826"]; 
-    if (capitals.includes(id)) {
-      country.buildings.push({ type: 'city', icon: '🏙' });
-      country.gold += 50; // Give cities a starting boost
+      const allObjects = (topo.objects.countries as any).geometries;
+      const nbArrays = topoNeighbors(allObjects);
+      const nbMap: Record<string, Set<string>> = {};
+      allObjects.forEach((obj: any, i: number) => {
+        const id = obj.id as string;
+        if (!id) return;
+        nbMap[id] = new Set(nbArrays[i].map((j: number) => allObjects[j].id).filter(Boolean));
+      });
+      neighborsRef.current = nbMap;
+
+      const gs = initGameState(playerCountryId, allIds, allIds.length, { seed, reservedOwners });
+
+      const LANDLOCKED = new Set([
+        "040","051","031","064","068","112","072","854","108","140","148","203","268","348",
+        "398","417","418","442","426","454","466","478","496","524","562","620","646","686",
+        "688","705","703","728","748","762","795","800","860","807","716","894","499","268",
+      ]);
+
+      for (const id of allIds) {
+        if (gs.countries[id]) {
+          gs.countries[id].isCoastal = !LANDLOCKED.has(id);
+        }
+      }
+      setGameState(gs);
     }
-
-    // AI logic fix: Give every country a "center" that isn't just one point
-    // This helps stop the "building in one corner" look
-    country.buildings = country.buildings.map((b, i) => ({
-      ...b,
-      x: (b.x ?? 0) + (Math.random() * 10 - 5), // Jitter the position
-      y: (b.y ?? 0) + (Math.random() * 10 - 5)
-    }));
-  }
-}
+    init();
     return () => { cancelled = true; };
-  }, [playerCountryId, lobbyId]);
+  }, [playerCountryId, difficulty, lobbyId, seed]);
 
   // Multiplayer realtime sync: join channel + apply incoming events
   useEffect(() => {
