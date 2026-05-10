@@ -27,7 +27,7 @@ export type BuildingType = "city" | "factory" | "port" | "fort" | "barracks" | "
 
 export const BUILDING_DEFS: Record<BuildingType, { icon: string; label: string; cost: number; description: string; requiresCoast?: boolean }> = {
   city:       { icon: "🏙", label: "City",       cost: 100, description: "+5 gold/sec" },
-  factory:    { icon: "🏭", label: "Factory",    cost: 150, description: "+10 troops/sec, +1 tank/sec" },
+  factory:    { icon: "🏭", label: "Factory",    cost: 150, description: "+1 tank/sec (1 tank = 10 troop strength)" },
   port:       { icon: "⚓", label: "Port",       cost: 120, description: "Allows 1000 troops to attack non-bordering countries (coastal)", requiresCoast: true },
   fort:       { icon: "🛡", label: "Fort",       cost: 80,  description: "+2% defense per fort" },
   barracks:   { icon: "🪖", label: "Barracks",   cost: 130, description: "+8 troops/sec" },
