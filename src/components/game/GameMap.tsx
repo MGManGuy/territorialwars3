@@ -1957,7 +1957,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
           {(() => {
             const mult = effectiveMult(inspecting!);
             const cityCount = inspectCountry.buildings.filter(b => b.type === "city").length;
-            void inspectCountry.buildings.filter(b => b.type === "factory").length;
+            // factories no longer produce troops
             // Per-second rates (tick is 100ms, so multiply per-tick gain by 10)
             const goldPerSec = ((0.1 + cityCount * 0.05) * mult + inspectCountry.tradeDeals.length * 0.2) * 10;
             const troopsPerSec = 0.2 * mult * 10;
