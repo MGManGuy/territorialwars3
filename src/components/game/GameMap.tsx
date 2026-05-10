@@ -1629,7 +1629,75 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
           title="Notification history"
           className="w-12 h-12 rounded-lg bg-[#0f1420]/90 border border-[#4a5568] text-white text-xl hover:bg-[#1a2030] flex items-center justify-center"
         >🔔</button>
+        <button
+          onClick={() => setShowFormables((v) => !v)}
+          title="Formable nations"
+          className="w-12 h-12 rounded-lg bg-[#0f1420]/90 border border-[#4a5568] text-white text-xl hover:bg-[#1a2030] flex items-center justify-center relative"
+        >
+          🏛
+          {(() => {
+            const ready = FORMABLES.filter(f => !(gameState.formedNations || []).includes(f.id) && f.requiredCountryIds.every(id => gameState.countries[id]?.owner === "player")).length;
+            return ready > 0 ? (
+              <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center font-bold">{ready}</span>
+            ) : null;
+          })()}
+        </button>
       </div>
+
+      {/* Formables panel */}
+      {showFormables && (
+        <div className="absolute top-1/2 right-20 -translate-y-1/2 z-30 w-80 bg-[#0f1420]/95 border border-[#4a5568] rounded-xl p-4 max-h-[70vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-white font-bold">🏛 Formable Nations</h3>
+            <button onClick={() => setShowFormables(false)} className="text-gray-400 hover:text-white">✕</button>
+          </div>
+          <div className="text-[11px] text-gray-400 mb-2">Own every required country, then spend Political Power to form a unified nation. Recolors all member countries.</div>
+          <div className="space-y-2">
+            {FORMABLES.map((f) => {
+              const formed = (gameState.formedNations || []).includes(f.id);
+              const owned = f.requiredCountryIds.filter(id => gameState.countries[id]?.owner === "player").length;
+              const total = f.requiredCountryIds.length;
+              const ready = owned === total && !formed;
+              const canAfford = gameState.politicalPower >= f.ppCost;
+              return (
+                <div key={f.id} className={`p-2 rounded border ${formed ? "border-green-500/50 bg-green-900/20" : ready ? "border-yellow-400/60 bg-yellow-900/10" : "border-[#4a5568] bg-[#1a2030]"}`}>
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1">
+                      <div className="text-sm text-white font-bold">{f.flag} {f.name} {formed && "✅"}</div>
+                      <div className="text-[10px] text-cyan-400">{owned}/{total} owned · cost {f.ppCost} PP</div>
+                    </div>
+                    <button
+                      disabled={formed || !ready || !canAfford}
+                      onClick={() => {
+                        setGameState((prev) => {
+                          if (!prev) return prev;
+                          if ((prev.formedNations || []).includes(f.id)) return prev;
+                          if (!f.requiredCountryIds.every(id => prev.countries[id]?.owner === "player")) return prev;
+                          if (prev.politicalPower < f.ppCost) return prev;
+                          const newCountries = { ...prev.countries };
+                          for (const id of f.requiredCountryIds) {
+                            if (newCountries[id]) {
+                              newCountries[id] = { ...newCountries[id], color: f.color };
+                            }
+                          }
+                          return {
+                            ...prev,
+                            politicalPower: prev.politicalPower - f.ppCost,
+                            formedNations: [...(prev.formedNations || []), f.id],
+                            countries: newCountries,
+                          };
+                        });
+                        showNotif(`🏛 ${f.name} FORMED! All member territories unified.`);
+                      }}
+                      className="px-2 py-1 rounded bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                    >{formed ? "Formed" : ready ? (canAfford ? "Form!" : "Need PP") : "Locked"}</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* AI Advisor button - bottom right */}
       <div className="absolute bottom-3 right-3 z-20">
