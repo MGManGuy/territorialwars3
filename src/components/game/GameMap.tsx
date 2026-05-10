@@ -451,21 +451,24 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
 
         const playerAtWar = prev.wars.length > 0;
 
-        // Difficulty buffs the AI (bots) — easy = same as player, hard = much stronger AI economy.
-        const aiBuff = difficulty === "hard" ? 1.6 : difficulty === "normal" ? 1.25 : 1.0;
+        // Difficulty: easy = no change. Normal: player -25%, AI +25%. Hard: player -50%, AI +50%.
+        const aiBuff = difficulty === "hard" ? 1.5 : difficulty === "normal" ? 1.25 : 1.0;
+        const playerNerf = difficulty === "hard" ? 0.5 : difficulty === "normal" ? 0.75 : 1.0;
         for (const cid in newCountries) {
           const c = newCountries[cid];
           const isBot = c.owner && c.owner !== "player";
-          const econMult = isBot ? aiBuff : 1.0;
+          const econMult = isBot ? aiBuff : playerNerf;
           const mult = effectiveMult(cid) * econMult;
           const cityCount = c.buildings.filter(b => b.type === "city").length;
           const factoryCount = c.buildings.filter(b => b.type === "factory").length;
           const barracksCount = c.buildings.filter(b => b.type === "barracks").length;
           const courthouseCount = c.buildings.filter(b => b.type === "courthouse").length;
           const airbaseCount = c.buildings.filter(b => b.type === "airbase").length;
+          const portCount = c.buildings.filter(b => b.type === "port").length;
 
           const goldGain = (0.1 + cityCount * 0.05) * mult;
-          const troopGain = (0.2 + factoryCount * 0.1 + barracksCount * 0.02) * mult;
+          // Factories no longer produce troops — they only produce tanks (1 tank = 10 troop strength in combat).
+          const troopGain = (0.2 + barracksCount * 0.02) * mult;
           // Tanks: 1 tank per second per factory => 0.1/tick (also gets AI buff)
           const tankGain = factoryCount * 0.1 * econMult;
           // Planes: 1 plane per second per airbase => 0.1/tick, costs 0.2 gold/tick (2/sec)
