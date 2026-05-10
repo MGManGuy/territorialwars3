@@ -109,6 +109,7 @@ export interface GameState {
   botResearch: Record<string, Record<string, number>>;
   // Bot saved gold earmarked for research
   botSavings: Record<string, number>;
+  formedNations?: string[]; // formable ids player has formed
 }
 
 export interface BotState {
