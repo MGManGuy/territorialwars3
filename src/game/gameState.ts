@@ -185,9 +185,8 @@ export function getTroopRate(state: GameState): number {
   const playerCountries = Object.values(state.countries).filter(c => c.owner === "player");
   for (const c of playerCountries) {
     const mult = effectiveMult(c.id);
-    // Base 2 troops/sec per country, scaled by country tier
+    // Base 2 troops/sec per country, scaled by country tier. Factories no longer produce troops.
     rate += 2 * mult;
-    rate += c.buildings.filter(b => b.type === "factory").length * 10;
     rate += c.buildings.filter(b => b.type === "barracks").length * 2;
   }
   return Math.round(rate * 10) / 10;
