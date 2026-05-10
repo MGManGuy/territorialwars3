@@ -604,8 +604,8 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
 
         const next = {
           ...prev,
-          gold: prev.gold + (goldRate / 10) * goldMult + playerGoldBonusFromTrade,
-          troops: prev.troops + (troopRate / 10) * troopMult,
+          gold: prev.gold + ((goldRate / 10) * goldMult + playerGoldBonusFromTrade) * playerNerf,
+          troops: prev.troops + (troopRate / 10) * troopMult * playerNerf,
           tanks: prev.tanks + playerTanksGain,
           planes: prev.planes + playerPlanesGain,
           politicalPower: prev.politicalPower + ppRate / 10 + playerCourthousePP + goalReward,
