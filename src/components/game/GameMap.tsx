@@ -998,61 +998,78 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
 
   // Keyboard controls
   useEffect(() => {
-    const keys = new Set<string>();
-    let frame: number;
+  const keys = new Set<string>();
+  let frame: number;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      keys.add(e.key.toLowerCase());
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Stop hotkeys from firing if you're typing in a chat or search box
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return;
+    }
 
-      if (e.key === " ") {
-        e.preventDefault();
-        setGameState((p) => p ? { ...p, paused: !p.paused } : p);
-      }
-      const num = parseInt(e.key);
-      if (num >= 1 && num <= BUILDING_SLOTS.length) {
-        const bt = BUILDING_SLOTS[num - 1];
-        setSelectedBuilding((prev) => (prev === bt ? null : bt));
-      }
-      if (e.key === "Escape") {
-        setSelectedBuilding(null);
-        setContextMenu(null);
-        setInspecting(null);
-      }
-    };
+    keys.add(e.key.toLowerCase());
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keys.delete(e.key.toLowerCase());
-    };
+    // Space to Pause
+    if (e.key === " ") {
+      e.preventDefault();
+      setGameState((p) => p ? { ...p, paused: !p.paused } : p);
+    }
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    // Hotkeys 1-9 for Buildings
+    const num = parseInt(e.key);
+    if (!isNaN(num) && num >= 1 && num <= BUILDING_SLOTS.length) {
+      const bt = BUILDING_SLOTS[num - 1];
+      setSelectedBuilding((prev) => (prev === bt ? null : bt));
+    }
 
-    const loop = () => {
-      if (svgRef.current) {
-        const svg = d3.select(svgRef.current);
-        const zoom = (svgRef.current as any).__zoomBehavior;
-        if (zoom) {
-          let dx = 0, dy = 0;
-          const speed = 15;
-          if (keys.has("w") || keys.has("arrowup")) dy = speed;
-          if (keys.has("s") || keys.has("arrowdown")) dy = -speed;
-          if (keys.has("a") || keys.has("arrowleft")) dx = speed;
-          if (keys.has("d") || keys.has("arrowright")) dx = -speed;
-          if (dx !== 0 || dy !== 0) {
-            zoom.translateBy(svg, dx, dy);
-          }
+    // Escape to clear everything
+    if (e.key === "Escape") {
+      setSelectedBuilding(null);
+      setContextMenu(null);
+      setInspecting(null);
+    }
+  };
+
+  const handleKeyUp = (e: KeyboardEvent) => {
+    keys.delete(e.key.toLowerCase());
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+  window.addEventListener("keyup", handleKeyUp);
+
+  const loop = () => {
+    if (svgRef.current) {
+      const svg = d3.select(svgRef.current);
+      const zoom = (svgRef.current as any).__zoomBehavior;
+      
+      if (zoom) {
+        let dx = 0, dy = 0;
+        // Shift key makes the camera move 3x faster
+        const baseSpeed = 12;
+        const speed = keys.has("shift") ? baseSpeed * 3 : baseSpeed;
+
+        if (keys.has("w") || keys.has("arrowup")) dy = speed;
+        if (keys.has("s") || keys.has("arrowdown")) dy = -speed;
+        if (keys.has("a") || keys.has("arrowleft")) dx = speed;
+        if (keys.has("d") || keys.has("arrowright")) dx = -speed;
+
+        if (dx !== 0 || dy !== 0) {
+          // Applying the translation to the D3 zoom state
+          svg.transition().duration(0).call(zoom.translateBy, dx, dy);
         }
       }
-      frame = requestAnimationFrame(loop);
-    };
+    }
     frame = requestAnimationFrame(loop);
+  };
+  
+  frame = requestAnimationFrame(loop);
 
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      cancelAnimationFrame(frame);
-    };
-  }, []);
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+    window.removeEventListener("keyup", handleKeyUp);
+    cancelAnimationFrame(frame);
+  };
+}, [setGameState]); // Added setGameState to deps for safety
 
   // Click handler
   const handleClick = useCallback(
