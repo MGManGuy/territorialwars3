@@ -736,6 +736,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
             }
             return {
               ...prev,
+              gold: newGoldTotal,
               troops: Math.max(0, newTroops),
               tanks: Math.max(0, newTanks),
               planes: Math.max(0, newPlanes),
