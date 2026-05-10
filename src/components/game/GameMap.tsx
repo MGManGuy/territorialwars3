@@ -2288,9 +2288,10 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                 className="flex-1 px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50"
               >🛡 Last Stand (50PP)</button>
             </div>
-          </div>
-        );
-      })()}
+      </div>
+    </div>
+  );
+})()}
 
       {/* Defender battle modal — live read-only view when another human attacks one of our countries */}
       {defenderBattle && (() => {
