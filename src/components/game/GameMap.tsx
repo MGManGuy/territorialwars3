@@ -511,8 +511,12 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
             const isRichMajor = !!(COUNTRY_ECON_MULT[cid] && COUNTRY_ECON_MULT[cid] >= 3.0);
             const desiredAirbases = isRichMajor ? 5 : 1;
             const airbaseThreshold = isRichMajor ? 2 : 6;
+            const isCoastalC = c.isCoastal !== false;
+            const desiredPorts = isCoastalC ? (isRichMajor ? 3 : 1) : 0;
             if (isTargetOfPlayer && fortCount < 5) {
               nextType = "fort";
+            } else if (isCoastalC && portCount < desiredPorts) {
+              nextType = "port";
             } else if (otherCount >= airbaseThreshold && airbaseCount < desiredAirbases) {
               nextType = "airbase";
             } else if (factoryCount <= cityCount) {
