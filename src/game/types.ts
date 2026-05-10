@@ -27,7 +27,7 @@ export type BuildingType = "city" | "factory" | "port" | "fort" | "barracks" | "
 
 export const BUILDING_DEFS: Record<BuildingType, { icon: string; label: string; cost: number; description: string; requiresCoast?: boolean }> = {
   city:       { icon: "🏙", label: "City",       cost: 100, description: "+5 gold/sec" },
-  factory:    { icon: "🏭", label: "Factory",    cost: 150, description: "+10 troops/sec, +1 tank/sec" },
+  factory:    { icon: "🏭", label: "Factory",    cost: 150, description: "+1 tank/sec (1 tank = 10 troop strength)" },
   port:       { icon: "⚓", label: "Port",       cost: 120, description: "Allows 1000 troops to attack non-bordering countries (coastal)", requiresCoast: true },
   fort:       { icon: "🛡", label: "Fort",       cost: 80,  description: "+2% defense per fort" },
   barracks:   { icon: "🪖", label: "Barracks",   cost: 130, description: "+8 troops/sec" },
@@ -109,6 +109,7 @@ export interface GameState {
   botResearch: Record<string, Record<string, number>>;
   // Bot saved gold earmarked for research
   botSavings: Record<string, number>;
+  formedNations?: string[]; // formable ids player has formed
 }
 
 export interface BotState {
@@ -213,3 +214,34 @@ export const CONTINENTS: Record<string, string> = {
 export const CONTINENT_NAMES: Record<string, string> = {
   NA: "North America", SA: "South America", EU: "Europe", AS: "Asia", AF: "Africa", OC: "Oceania",
 };
+
+// ===== Formable nations =====
+export interface Formable {
+  id: string;
+  name: string;
+  flag: string;
+  color: string;
+  ppCost: number;
+  requiredCountryIds: string[];
+}
+
+export const FORMABLES: Formable[] = [
+  { id: "soviet",    name: "Soviet Union",            flag: "☭", color: "#cc0000", ppCost: 250,
+    requiredCountryIds: ["643","804","112","398","860","762","795","417","051","031","268","428","440","233"] },
+  { id: "caliphate", name: "Middle Eastern Caliphate", flag: "☪", color: "#1a6b3a", ppCost: 250,
+    requiredCountryIds: ["682","368","760","400","818","887","784","512","414","634","048","364"] },
+  { id: "eu",        name: "European Union",           flag: "★", color: "#003399", ppCost: 300,
+    requiredCountryIds: ["276","250","380","724","620","528","056","040","752","246","208","372","300","100","203","616","642","440","428","233","703","705","191"] },
+  { id: "rome",      name: "Roman Empire",             flag: "🦅", color: "#8b1a1a", ppCost: 300,
+    requiredCountryIds: ["380","250","724","620","300","818","504","788","760","422","792","008","807","642"] },
+  { id: "mongol",    name: "Mongol Empire",            flag: "🐎", color: "#5c4033", ppCost: 250,
+    requiredCountryIds: ["496","156","643","398","417","860","762","795","804"] },
+  { id: "india",     name: "Greater India",            flag: "🕉", color: "#f77f00", ppCost: 200,
+    requiredCountryIds: ["356","586","050","144","524","064","104"] },
+];
+
+export interface FormedNation {
+  formableId: string;
+  formedAt: number;
+}
+

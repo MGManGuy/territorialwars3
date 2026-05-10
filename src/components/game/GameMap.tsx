@@ -7,7 +7,7 @@ import { getCountryName, getCountryFlag } from "@/game/countryNames";
 import { initGameState, getGoldRate, getTroopRate, getLeaderboard, getPoliticalPowerRate } from "@/game/gameState";
 import {
   type GameState, type BuildingType, type War, BUILDING_DEFS, BUILDING_SLOTS,
-  advanceDate, formatDate, PLAYER_COLOR, RESEARCH_DEFS, GOALS, CONTINENTS, CONTINENT_NAMES,
+  advanceDate, formatDate, PLAYER_COLOR, RESEARCH_DEFS, GOALS, CONTINENTS, CONTINENT_NAMES, FORMABLES,
 } from "@/game/types";
 
 // Helper to check if at war with a country
@@ -117,6 +117,10 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
   const [showResearch, setShowResearch] = useState(false);
   const [showGoals, setShowGoals] = useState(false);
   const [showNotifLog, setShowNotifLog] = useState(false);
+  const [showFormables, setShowFormables] = useState(false);
+  const [buildMultiplier, setBuildMultiplier] = useState<1 | 5 | 10>(1);
+  const [attackTanks, setAttackTanks] = useState<number>(0);
+  const [attackPlanes, setAttackPlanes] = useState<number>(0);
   const gameStateRef = useRef<GameState | null>(null);
   const featuresRef = useRef<Feature<Geometry>[]>([]);
   // Neighbor map: countryId -> Set of bordering countryIds
@@ -197,7 +201,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
         });
         neighborsRef.current = nbMap;
 
-        const gs = initGameState(playerCountryId, allIds, 30, { seed, reservedOwners });
+        const gs = initGameState(playerCountryId, allIds, allIds.length, { seed, reservedOwners });
         // Mark coastal countries: a country is coastal if it has fewer neighbors than the
         // number of its land borders would suggest. Heuristic: any country with <= 2 neighbors
         // is coastal/island; otherwise check via ocean test by sampling. Simpler: use a known list
@@ -447,21 +451,24 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
 
         const playerAtWar = prev.wars.length > 0;
 
-        // Difficulty buffs the AI (bots) — easy = same as player, hard = much stronger AI economy.
-        const aiBuff = difficulty === "hard" ? 1.6 : difficulty === "normal" ? 1.25 : 1.0;
+        // Difficulty: easy = no change. Normal: player -25%, AI +25%. Hard: player -50%, AI +50%.
+        const aiBuff = difficulty === "hard" ? 1.5 : difficulty === "normal" ? 1.25 : 1.0;
+        const playerNerf = difficulty === "hard" ? 0.5 : difficulty === "normal" ? 0.75 : 1.0;
         for (const cid in newCountries) {
           const c = newCountries[cid];
           const isBot = c.owner && c.owner !== "player";
-          const econMult = isBot ? aiBuff : 1.0;
+          const econMult = isBot ? aiBuff : playerNerf;
           const mult = effectiveMult(cid) * econMult;
           const cityCount = c.buildings.filter(b => b.type === "city").length;
           const factoryCount = c.buildings.filter(b => b.type === "factory").length;
           const barracksCount = c.buildings.filter(b => b.type === "barracks").length;
           const courthouseCount = c.buildings.filter(b => b.type === "courthouse").length;
           const airbaseCount = c.buildings.filter(b => b.type === "airbase").length;
+          const portCount = c.buildings.filter(b => b.type === "port").length;
 
           const goldGain = (0.1 + cityCount * 0.05) * mult;
-          const troopGain = (0.2 + factoryCount * 0.1 + barracksCount * 0.02) * mult;
+          // Factories no longer produce troops — they only produce tanks (1 tank = 10 troop strength in combat).
+          const troopGain = (0.2 + barracksCount * 0.02) * mult;
           // Tanks: 1 tank per second per factory => 0.1/tick (also gets AI buff)
           const tankGain = factoryCount * 0.1 * econMult;
           // Planes: 1 plane per second per airbase => 0.1/tick, costs 0.2 gold/tick (2/sec)
@@ -504,8 +511,12 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
             const isRichMajor = !!(COUNTRY_ECON_MULT[cid] && COUNTRY_ECON_MULT[cid] >= 3.0);
             const desiredAirbases = isRichMajor ? 5 : 1;
             const airbaseThreshold = isRichMajor ? 2 : 6;
+            const isCoastalC = c.isCoastal !== false;
+            const desiredPorts = isCoastalC ? (isRichMajor ? 3 : 1) : 0;
             if (isTargetOfPlayer && fortCount < 5) {
               nextType = "fort";
+            } else if (isCoastalC && portCount < desiredPorts) {
+              nextType = "port";
             } else if (otherCount >= airbaseThreshold && airbaseCount < desiredAirbases) {
               nextType = "airbase";
             } else if (factoryCount <= cityCount) {
@@ -593,8 +604,8 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
 
         const next = {
           ...prev,
-          gold: prev.gold + (goldRate / 10) * goldMult + playerGoldBonusFromTrade,
-          troops: prev.troops + (troopRate / 10) * troopMult,
+          gold: prev.gold + ((goldRate / 10) * goldMult + playerGoldBonusFromTrade) * playerNerf,
+          troops: prev.troops + (troopRate / 10) * troopMult * playerNerf,
           tanks: prev.tanks + playerTanksGain,
           planes: prev.planes + playerPlanesGain,
           politicalPower: prev.politicalPower + ppRate / 10 + playerCourthousePP + goalReward,
@@ -692,16 +703,21 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
             let newTroops = prev.troops + newAtk;
             let newTanks = prev.tanks + newAtkTanks;
             let newPlanes = prev.planes + newAtkPlanes;
+            let newGoldTotal = prev.gold;
             let newWars = prev.wars;
             if (newDef <= 0 && newAtk > 0) {
               const previousOwner = target.owner;
+              // War spoils: capture the conquered country's treasury
+              const looted = Math.floor(target.gold);
+              newGoldTotal += looted;
+              target.gold = 0;
               target.owner = "player";
               target.color = PLAYER_COLOR;
               target.troops = Math.max(50, Math.floor(newAtk * 0.5));
               newTroops -= target.troops;
               newCountries[b.targetId] = target;
               newWars = removeWar(prev.wars, b.targetId);
-              setTimeout(() => showNotif(`🏆 Conquered ${target.name}!`), 0);
+              setTimeout(() => showNotif(`🏆 Conquered ${target.name}! Looted ${looted} gold.`), 0);
               // Broadcast capture so other players' maps update
               mpBroadcast({
                 type: "country_captured",
@@ -720,6 +736,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
             }
             return {
               ...prev,
+              gold: newGoldTotal,
               troops: Math.max(0, newTroops),
               tanks: Math.max(0, newTanks),
               planes: Math.max(0, newPlanes),
@@ -886,25 +903,21 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
         // ----- Bot vs bot wars after 2030: bots with double the troops of a neighbor declare war
         // Track via a simple botWars record on countries (use relations < -50 + active flag in notifs).
         // We attack the neighbor immediately at full strength (instant resolution).
-        if (p.date.year >= 2030 && Math.random() < 0.5) {
-          // Pick a random aggressor bot
+        if (p.date.year >= 2026) {
+          // Each tick: every bot has a chance to launch a war on a weaker neighbor.
           const aggressors = p.bots.filter(b => Object.values(countries).some(c => c.owner === b.id));
-          if (aggressors.length > 0) {
-            const ag = aggressors[Math.floor(Math.random() * aggressors.length)];
+          for (const ag of aggressors) {
+            if (Math.random() > 0.35) continue; // ~35% chance per bot per 3s tick
             const agCountries = Object.values(countries).filter(c => c.owner === ag.id);
-            // For each aggressor country, find a neighboring country owned by a different owner
             outer: for (const c of agCountries) {
               const nbs = nbMap[c.id];
               if (!nbs) continue;
               for (const nbId of nbs) {
                 const nb = countries[nbId];
                 if (!nb || !nb.owner || nb.owner === ag.id) continue;
-                // Don't attack player here (handled by counter-attack); but allow if double troops AND not allied
                 if (nb.owner === "player") continue;
-                // Don't let bots attack other human players either.
                 if (nb.owner.startsWith("human-")) continue;
-                if (c.troops < nb.troops * 2) continue;
-                // Full-strength attack: aggressor uses 80% of troops
+                if (c.troops < nb.troops * 1.3) continue;
                 const force = Math.floor(c.troops * 0.8);
                 const defenseMult = 1 + nb.buildings.filter(b => b.type === "fort").length * 0.02;
                 const atkLvl = (botResearch[ag.id]?.atk || 0);
@@ -913,16 +926,18 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                 const defPower = nb.troops * defenseMult * (1 + defLvl * 0.1);
                 countries[c.id] = { ...c, troops: Math.max(50, c.troops - Math.floor(force * 0.5)) };
                 if (atkPower > defPower) {
-                  // Aggressor wins — annex
+                  // Aggressor wins — annex AND loot treasury into aggressor's capital
+                  const looted = Math.floor(nb.gold);
+                  countries[c.id] = { ...countries[c.id], gold: countries[c.id].gold + looted };
                   countries[nbId] = {
                     ...nb,
                     owner: ag.id,
                     color: ag.color,
+                    gold: 0,
                     troops: Math.max(50, Math.floor(force * 0.3)),
                   };
                   notifs.push(`⚔ ${ag.name} conquered ${nb.name}!`);
 
-                  // Guarantee trigger: if player guarantees this country, drag player into war with aggressor
                   if (p.guarantees?.includes(nbId)) {
                     const agAnyCountry = agCountries[0]?.id;
                     if (agAnyCountry && !wars.some(w => w.countryId === agAnyCountry)) {
@@ -931,7 +946,6 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                     }
                   }
                 } else {
-                  // Defender holds
                   countries[nbId] = { ...nb, troops: Math.max(50, nb.troops - Math.floor(defPower * 0.2)) };
                   notifs.push(`🛡 ${nb.name} repelled ${ag.name}!`);
                 }
@@ -1009,37 +1023,48 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
           showNotif(`${def.label} requires a coastal country!`);
           return;
         }
-        if (gameState.gold < def.cost) {
-          showNotif(`Not enough gold! Need ${def.cost}`);
+        const mult = buildMultiplier;
+        const totalCost = def.cost * mult;
+        if (gameState.gold < totalCost) {
+          showNotif(`Not enough gold! Need ${totalCost} for x${mult}`);
           return;
         }
-        // Get click coords in map-group local space (accounts for zoom/pan)
         const gNode = svgRef.current?.querySelector("g.map-group") as SVGGElement | null;
-        let clickX: number | undefined;
-        let clickY: number | undefined;
+        let baseX: number | undefined;
+        let baseY: number | undefined;
         if (gNode) {
           const [lx, ly] = d3.pointer(e.nativeEvent, gNode);
-          clickX = lx;
-          clickY = ly;
+          baseX = lx;
+          baseY = ly;
         }
-        const buildingEntry = { type: selectedBuilding, icon: def.icon, x: clickX, y: clickY };
+        const entries: { type: BuildingType; icon: string; x?: number; y?: number }[] = [];
+        for (let i = 0; i < mult; i++) {
+          // Spread copies in a small spiral so they're visible separately
+          const angle = (i / Math.max(1, mult)) * Math.PI * 2;
+          const radius = i === 0 ? 0 : 6 + (i % 3) * 4;
+          const ex = baseX !== undefined ? baseX + Math.cos(angle) * radius : undefined;
+          const ey = baseY !== undefined ? baseY + Math.sin(angle) * radius : undefined;
+          entries.push({ type: selectedBuilding, icon: def.icon, x: ex, y: ey });
+        }
         setGameState((prev) => {
           if (!prev) return prev;
           const c = { ...prev.countries[id] };
-          c.buildings = [...c.buildings, buildingEntry];
+          c.buildings = [...c.buildings, ...entries];
           return {
             ...prev,
-            gold: prev.gold - def.cost,
+            gold: prev.gold - totalCost,
             countries: { ...prev.countries, [id]: c },
           };
         });
-        mpBroadcast({ type: "build", from: myOwnerKeyRef.current, countryId: id, building: buildingEntry });
-        showNotif(`${def.icon} ${def.label} placed in ${country.name}!`);
-        setSelectedBuilding(null);
+        for (const en of entries) {
+          mpBroadcast({ type: "build", from: myOwnerKeyRef.current, countryId: id, building: en });
+        }
+        showNotif(`${def.icon} ×${mult} ${def.label} placed in ${country.name}!`);
+        if (mult === 1) setSelectedBuilding(null);
         return;
       }
     },
-    [gameState, selectedBuilding, contextMenu]
+    [gameState, selectedBuilding, contextMenu, buildMultiplier, mpBroadcast]
   );
 
   // Right-click
@@ -1247,6 +1272,8 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
         }
         setAttackTarget(contextMenu.countryId);
         setAttackTroops(Math.min(Math.floor(gameState.troops), Math.max(100, Math.floor(gameState.troops / 2))));
+        setAttackTanks(Math.floor(gameState.tanks));
+        setAttackPlanes(Math.floor(gameState.planes));
         break;
       }
       case "makePeace": {
@@ -1539,26 +1566,43 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
       )}
 
       {/* Hotbar - bottom center */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex gap-1">
-        {BUILDING_SLOTS.map((bt, i) => {
-          const def = BUILDING_DEFS[bt];
-          const isSelected = selectedBuilding === bt;
-          return (
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-end gap-2">
+        <div className="flex gap-1">
+          {BUILDING_SLOTS.map((bt, i) => {
+            const def = BUILDING_DEFS[bt];
+            const isSelected = selectedBuilding === bt;
+            return (
+              <button
+                key={bt}
+                onClick={(e) => { e.stopPropagation(); setSelectedBuilding(isSelected ? null : bt); }}
+                className={`w-14 h-14 rounded-lg flex flex-col items-center justify-center text-xs transition border ${
+                  isSelected
+                    ? "bg-[#7c3aed] border-[#a78bfa] text-white"
+                    : "bg-[#0f1420]/90 border-[#4a5568] text-gray-300 hover:bg-[#1a2030]"
+                }`}
+                title={`${def.label} — ${def.cost * buildMultiplier} gold (×${buildMultiplier}) — ${def.description}`}
+              >
+                <span className="text-lg">{def.icon}</span>
+                <span className="text-[10px]">{i + 1}</span>
+              </button>
+            );
+          })}
+        </div>
+        {/* Build multiplier x1/x5/x10 */}
+        <div className="flex flex-col gap-1 ml-1">
+          {([1, 5, 10] as const).map((m) => (
             <button
-              key={bt}
-              onClick={(e) => { e.stopPropagation(); setSelectedBuilding(isSelected ? null : bt); }}
-              className={`w-14 h-14 rounded-lg flex flex-col items-center justify-center text-xs transition border ${
-                isSelected
-                  ? "bg-[#7c3aed] border-[#a78bfa] text-white"
-                  : "bg-[#0f1420]/90 border-[#4a5568] text-gray-300 hover:bg-[#1a2030]"
+              key={m}
+              onClick={(e) => { e.stopPropagation(); setBuildMultiplier(m); }}
+              className={`w-10 h-[17px] rounded text-[10px] font-bold border transition ${
+                buildMultiplier === m
+                  ? "bg-[#f97316] border-[#fb923c] text-white"
+                  : "bg-[#0f1420]/90 border-[#4a5568] text-gray-400 hover:bg-[#1a2030]"
               }`}
-              title={`${def.label} — ${def.cost} gold — ${def.description}`}
-            >
-              <span className="text-lg">{def.icon}</span>
-              <span className="text-[10px]">{i + 1}</span>
-            </button>
-          );
-        })}
+              title={`Place ${m} building${m > 1 ? "s" : ""} per click`}
+            >×{m}</button>
+          ))}
+        </div>
       </div>
 
       {/* Side rail - right middle: Research, Goals, Notifications */}
@@ -1585,7 +1629,75 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
           title="Notification history"
           className="w-12 h-12 rounded-lg bg-[#0f1420]/90 border border-[#4a5568] text-white text-xl hover:bg-[#1a2030] flex items-center justify-center"
         >🔔</button>
+        <button
+          onClick={() => setShowFormables((v) => !v)}
+          title="Formable nations"
+          className="w-12 h-12 rounded-lg bg-[#0f1420]/90 border border-[#4a5568] text-white text-xl hover:bg-[#1a2030] flex items-center justify-center relative"
+        >
+          🏛
+          {(() => {
+            const ready = FORMABLES.filter(f => !(gameState.formedNations || []).includes(f.id) && f.requiredCountryIds.every(id => gameState.countries[id]?.owner === "player")).length;
+            return ready > 0 ? (
+              <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center font-bold">{ready}</span>
+            ) : null;
+          })()}
+        </button>
       </div>
+
+      {/* Formables panel */}
+      {showFormables && (
+        <div className="absolute top-1/2 right-20 -translate-y-1/2 z-30 w-80 bg-[#0f1420]/95 border border-[#4a5568] rounded-xl p-4 max-h-[70vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-white font-bold">🏛 Formable Nations</h3>
+            <button onClick={() => setShowFormables(false)} className="text-gray-400 hover:text-white">✕</button>
+          </div>
+          <div className="text-[11px] text-gray-400 mb-2">Own every required country, then spend Political Power to form a unified nation. Recolors all member countries.</div>
+          <div className="space-y-2">
+            {FORMABLES.map((f) => {
+              const formed = (gameState.formedNations || []).includes(f.id);
+              const owned = f.requiredCountryIds.filter(id => gameState.countries[id]?.owner === "player").length;
+              const total = f.requiredCountryIds.length;
+              const ready = owned === total && !formed;
+              const canAfford = gameState.politicalPower >= f.ppCost;
+              return (
+                <div key={f.id} className={`p-2 rounded border ${formed ? "border-green-500/50 bg-green-900/20" : ready ? "border-yellow-400/60 bg-yellow-900/10" : "border-[#4a5568] bg-[#1a2030]"}`}>
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1">
+                      <div className="text-sm text-white font-bold">{f.flag} {f.name} {formed && "✅"}</div>
+                      <div className="text-[10px] text-cyan-400">{owned}/{total} owned · cost {f.ppCost} PP</div>
+                    </div>
+                    <button
+                      disabled={formed || !ready || !canAfford}
+                      onClick={() => {
+                        setGameState((prev) => {
+                          if (!prev) return prev;
+                          if ((prev.formedNations || []).includes(f.id)) return prev;
+                          if (!f.requiredCountryIds.every(id => prev.countries[id]?.owner === "player")) return prev;
+                          if (prev.politicalPower < f.ppCost) return prev;
+                          const newCountries = { ...prev.countries };
+                          for (const id of f.requiredCountryIds) {
+                            if (newCountries[id]) {
+                              newCountries[id] = { ...newCountries[id], color: f.color };
+                            }
+                          }
+                          return {
+                            ...prev,
+                            politicalPower: prev.politicalPower - f.ppCost,
+                            formedNations: [...(prev.formedNations || []), f.id],
+                            countries: newCountries,
+                          };
+                        });
+                        showNotif(`🏛 ${f.name} FORMED! All member territories unified.`);
+                      }}
+                      className="px-2 py-1 rounded bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                    >{formed ? "Formed" : ready ? (canAfford ? "Form!" : "Need PP") : "Locked"}</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* AI Advisor button - bottom right */}
       <div className="absolute bottom-3 right-3 z-20">
@@ -1845,10 +1957,10 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
           {(() => {
             const mult = effectiveMult(inspecting!);
             const cityCount = inspectCountry.buildings.filter(b => b.type === "city").length;
-            const factoryCount = inspectCountry.buildings.filter(b => b.type === "factory").length;
+            // factories no longer produce troops
             // Per-second rates (tick is 100ms, so multiply per-tick gain by 10)
             const goldPerSec = ((0.1 + cityCount * 0.05) * mult + inspectCountry.tradeDeals.length * 0.2) * 10;
-            const troopsPerSec = (0.2 + factoryCount * 0.1) * mult * 10;
+            const troopsPerSec = 0.2 * mult * 10;
             return (
               <div className="space-y-2 text-sm text-gray-300">
                 <div>Owner: <span className="text-white">{inspectCountry.owner ? (inspectCountry.owner === "player" ? "You" : gameState.bots.find(b => b.id === inspectCountry.owner)?.name || "Unknown") : "Unowned"}</span></div>
@@ -1944,6 +2056,30 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                     disabled={navalBlocked || maxAtk < 1}
                   />
                 </div>
+                <div className="pt-1">
+                  <label className="text-xs text-gray-400">Send tanks: <span className="text-yellow-300 font-bold">{Math.min(attackTanks, maxTanks)}</span> / {maxTanks} <span className="text-gray-500">(1 tank = 10 troop strength)</span></label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, maxTanks)}
+                    value={Math.min(attackTanks, maxTanks)}
+                    onChange={(e) => setAttackTanks(parseInt(e.target.value))}
+                    className="w-full"
+                    disabled={navalBlocked || maxTanks < 1}
+                  />
+                </div>
+                <div className="pt-1">
+                  <label className="text-xs text-gray-400">Send planes: <span className="text-cyan-300 font-bold">{Math.min(attackPlanes, maxPlanes)}</span> / {maxPlanes}</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, maxPlanes)}
+                    value={Math.min(attackPlanes, maxPlanes)}
+                    onChange={(e) => setAttackPlanes(parseInt(e.target.value))}
+                    className="w-full"
+                    disabled={navalBlocked || maxPlanes < 1}
+                  />
+                </div>
               </div>
               <div className="flex gap-2 mt-4">
                 <button
@@ -1954,26 +2090,26 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                   onClick={() => {
                     if (navalBlocked) return;
                     const sendTroops = Math.min(attackTroops, maxAtk);
+                    const sendTanks = Math.min(attackTanks, maxTanks);
+                    const sendPlanes = Math.min(attackPlanes, maxPlanes);
                     if (sendTroops < 1) return;
-                    // Commit ALL tanks and planes to the battle
                     setGameState((prev) => prev ? {
                       ...prev,
                       troops: prev.troops - sendTroops,
-                      tanks: 0,
-                      planes: 0,
+                      tanks: prev.tanks - sendTanks,
+                      planes: prev.planes - sendPlanes,
                     } : prev);
                     setBattle({
                       targetId: attackTarget,
                       attacker: sendTroops,
                       defender: Math.floor(target.troops),
-                      attackerTanks: maxTanks,
-                      attackerPlanes: maxPlanes,
+                      attackerTanks: sendTanks,
+                      attackerPlanes: sendPlanes,
                       defenderPlanes: Math.floor(target.planes),
                       progress: 0,
                       defenseMult,
                       initialDefender: Math.floor(target.troops),
                     });
-                    // Notify defender if target is owned by another human
                     if (target.owner && target.owner.startsWith("human-")) {
                       mpBroadcast({
                         type: "attack_started",
@@ -1987,7 +2123,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                   }}
                   disabled={navalBlocked || attackTroops < 1 || maxAtk < 1}
                   className="flex-1 px-3 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-50"
-                >⚔ Launch (all tanks & planes)</button>
+                >⚔ Launch attack</button>
               </div>
             </div>
           </div>
