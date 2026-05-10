@@ -1971,6 +1971,30 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                     disabled={navalBlocked || maxAtk < 1}
                   />
                 </div>
+                <div className="pt-1">
+                  <label className="text-xs text-gray-400">Send tanks: <span className="text-yellow-300 font-bold">{Math.min(attackTanks, maxTanks)}</span> / {maxTanks} <span className="text-gray-500">(1 tank = 10 troop strength)</span></label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, maxTanks)}
+                    value={Math.min(attackTanks, maxTanks)}
+                    onChange={(e) => setAttackTanks(parseInt(e.target.value))}
+                    className="w-full"
+                    disabled={navalBlocked || maxTanks < 1}
+                  />
+                </div>
+                <div className="pt-1">
+                  <label className="text-xs text-gray-400">Send planes: <span className="text-cyan-300 font-bold">{Math.min(attackPlanes, maxPlanes)}</span> / {maxPlanes}</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, maxPlanes)}
+                    value={Math.min(attackPlanes, maxPlanes)}
+                    onChange={(e) => setAttackPlanes(parseInt(e.target.value))}
+                    className="w-full"
+                    disabled={navalBlocked || maxPlanes < 1}
+                  />
+                </div>
               </div>
               <div className="flex gap-2 mt-4">
                 <button
@@ -1981,26 +2005,26 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                   onClick={() => {
                     if (navalBlocked) return;
                     const sendTroops = Math.min(attackTroops, maxAtk);
+                    const sendTanks = Math.min(attackTanks, maxTanks);
+                    const sendPlanes = Math.min(attackPlanes, maxPlanes);
                     if (sendTroops < 1) return;
-                    // Commit ALL tanks and planes to the battle
                     setGameState((prev) => prev ? {
                       ...prev,
                       troops: prev.troops - sendTroops,
-                      tanks: 0,
-                      planes: 0,
+                      tanks: prev.tanks - sendTanks,
+                      planes: prev.planes - sendPlanes,
                     } : prev);
                     setBattle({
                       targetId: attackTarget,
                       attacker: sendTroops,
                       defender: Math.floor(target.troops),
-                      attackerTanks: maxTanks,
-                      attackerPlanes: maxPlanes,
+                      attackerTanks: sendTanks,
+                      attackerPlanes: sendPlanes,
                       defenderPlanes: Math.floor(target.planes),
                       progress: 0,
                       defenseMult,
                       initialDefender: Math.floor(target.troops),
                     });
-                    // Notify defender if target is owned by another human
                     if (target.owner && target.owner.startsWith("human-")) {
                       mpBroadcast({
                         type: "attack_started",
@@ -2014,7 +2038,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                   }}
                   disabled={navalBlocked || attackTroops < 1 || maxAtk < 1}
                   className="flex-1 px-3 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-50"
-                >⚔ Launch (all tanks & planes)</button>
+                >⚔ Launch attack</button>
               </div>
             </div>
           </div>
