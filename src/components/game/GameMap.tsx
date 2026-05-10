@@ -451,7 +451,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
 
         const playerAtWar = prev.wars.length > 0;
 
-        // Difficulty: easy = no change. Normal: player -25%, AI +25%. Hard: player -50%, AI +50%.
+        // Difficulty: easy = no change. Normal: player -25% gold/troops/PP, AI +25%. Hard: player -50%, AI +50%.
         const aiBuff = difficulty === "hard" ? 1.5 : difficulty === "normal" ? 1.25 : 1.0;
         const playerNerf = difficulty === "hard" ? 0.5 : difficulty === "normal" ? 0.75 : 1.0;
         for (const cid in newCountries) {
@@ -499,34 +499,46 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
           // any other human player ("human-*" owners are remote humans).
           if (c.owner && c.owner !== "player" && !c.owner.startsWith("human-")) {
             const totalBuilt = c.buildings.length;
-            const otherCount = totalBuilt - airbaseCount;
-            const botAtWar = false; // bots don't track wars individually; use heuristic
-            // Pick what to build:
-            // - If at war (player at war with this country), prefer fort
-            // - If 6+ other buildings and 0 airbase, build airbase
-            // - Else alternate city/factory + sometimes barracks/courthouse
+            // Pick what to build — priority order:
+            // 1. Cities (primary income engine) — always want more
+            // 2. Barracks (military readiness) — up to 3
+            // 3. Factories (tanks) — up to 2
+            // 4. Courthouse (PP) — 1 per country
+            // 5. Airbase (planes, expensive upkeep) — only rich majors or late game
+            // 6. Port — ONLY if country is a true island (no land neighbors at all)
+            // 7. Fort — if being attacked by player
             let nextType: BuildingType = "city";
             const isTargetOfPlayer = prev.wars.some(w => w.countryId === cid);
             const fortCount = c.buildings.filter(b => b.type === "fort").length;
             const isRichMajor = !!(COUNTRY_ECON_MULT[cid] && COUNTRY_ECON_MULT[cid] >= 3.0);
-            const desiredAirbases = isRichMajor ? 5 : 1;
-            const airbaseThreshold = isRichMajor ? 2 : 6;
-            const isCoastalC = c.isCoastal !== false;
-            const desiredPorts = isCoastalC ? (isRichMajor ? 3 : 1) : 0;
+            const desiredAirbases = isRichMajor ? 4 : 1;
+            const airbaseThreshold = isRichMajor ? 5 : 10; // more buildings before airbase
+            const desiredCities = isRichMajor ? 8 : 5;
+            const desiredBarracks = isRichMajor ? 4 : 3;
+            const desiredFactories = isRichMajor ? 3 : 2;
+
+            // Port only for true islands: coastal AND no land neighbors
+            const nbs = neighborsRef.current[cid] || [];
+            const hasNoLandNeighbors = nbs.length === 0;
+            const isIsland = c.isCoastal !== false && hasNoLandNeighbors;
+            const desiredPorts = isIsland ? 1 : 0;
+
             if (isTargetOfPlayer && fortCount < 5) {
               nextType = "fort";
-            } else if (isCoastalC && portCount < desiredPorts) {
-              nextType = "port";
-            } else if (otherCount >= airbaseThreshold && airbaseCount < desiredAirbases) {
-              nextType = "airbase";
-            } else if (factoryCount <= cityCount) {
-              nextType = "factory";
-            } else if (barracksCount < 2) {
+            } else if (cityCount < desiredCities) {
+              nextType = "city";
+            } else if (barracksCount < desiredBarracks) {
               nextType = "barracks";
+            } else if (factoryCount < desiredFactories) {
+              nextType = "factory";
             } else if (courthouseCount < 1) {
               nextType = "courthouse";
+            } else if (totalBuilt >= airbaseThreshold && airbaseCount < desiredAirbases) {
+              nextType = "airbase";
+            } else if (isIsland && portCount < desiredPorts) {
+              nextType = "port";
             } else {
-              nextType = "city";
+              nextType = "city"; // keep building cities
             }
             const def = BUILDING_DEFS[nextType];
             if (newGold >= def.cost && totalBuilt < 25) {
@@ -554,7 +566,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
           };
         }
 
-        // Player aggregate resources (difficulty no longer nerfs player; it buffs AI instead)
+        // Player aggregate resources (difficulty nerfs player gold/troops/PP and buffs AI)
         const goldRate = getGoldRate(prev);
         const troopRate = getTroopRate(prev);
         const ppRate = getPoliticalPowerRate(prev);
@@ -608,7 +620,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
           troops: prev.troops + (troopRate / 10) * troopMult * playerNerf,
           tanks: prev.tanks + playerTanksGain,
           planes: prev.planes + playerPlanesGain,
-          politicalPower: prev.politicalPower + ppRate / 10 + playerCourthousePP + goalReward,
+          politicalPower: prev.politicalPower + (ppRate / 10 + playerCourthousePP) * playerNerf + goalReward,
           date: newDate,
           countries: newCountries,
           researchLevels,
@@ -900,15 +912,20 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
         // (see bot vs bot below). Trigger if any guarantee target is being attacked by a bot.
         // For simplicity, if a guaranteed country has lost troops recently AND is at war below.
 
-        // ----- Bot vs bot wars after 2030: bots with double the troops of a neighbor declare war
-        // Track via a simple botWars record on countries (use relations < -50 + active flag in notifs).
-        // We attack the neighbor immediately at full strength (instant resolution).
+        // ----- Bot vs bot wars: opportunistic — strong bots attack weak neighbors
+        // Requires: attacker has ≥2x troops of target AND has enough simulated "PP" (gold ≥ 150)
+        // Low probability per tick so wars are occasional, not constant
         if (p.date.year >= 2026) {
-          // Each tick: every bot has a chance to launch a war on a weaker neighbor.
           const aggressors = p.bots.filter(b => Object.values(countries).some(c => c.owner === b.id));
           for (const ag of aggressors) {
-            if (Math.random() > 0.35) continue; // ~35% chance per bot per 3s tick
+            // Each bot has only a ~8% chance per 3s tick to consider war (very occasional)
+            if (Math.random() > 0.08) continue;
             const agCountries = Object.values(countries).filter(c => c.owner === ag.id);
+            const agTotalTroops = agCountries.reduce((s, c) => s + c.troops, 0);
+            const agRichest = agCountries.reduce((a, b) => a.gold > b.gold ? a : b, agCountries[0]);
+            // Bot needs a "political power" equivalent — enough gold savings — to justify war
+            if (!agRichest || agRichest.gold < 150) continue;
+
             outer: for (const c of agCountries) {
               const nbs = nbMap[c.id];
               if (!nbs) continue;
@@ -917,16 +934,23 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                 if (!nb || !nb.owner || nb.owner === ag.id) continue;
                 if (nb.owner === "player") continue;
                 if (nb.owner.startsWith("human-")) continue;
-                if (c.troops < nb.troops * 1.3) continue;
-                const force = Math.floor(c.troops * 0.8);
+                // Only attack if aggressor has significantly more troops (2x ratio = power imbalance)
+                const nbOwnerCountries = Object.values(countries).filter(cc => cc.owner === nb.owner);
+                const nbTotalTroops = nbOwnerCountries.reduce((s, cc) => s + cc.troops, 0);
+                if (agTotalTroops < nbTotalTroops * 2.0) continue;
+                // Additional check: aggressor must be notably stronger per-country too
+                if (c.troops < nb.troops * 1.5) continue;
+
+                const force = Math.floor(c.troops * 0.75);
                 const defenseMult = 1 + nb.buildings.filter(b => b.type === "fort").length * 0.02;
                 const atkLvl = (botResearch[ag.id]?.atk || 0);
                 const defLvl = (botResearch[nb.owner]?.def || 0);
                 const atkPower = force * (1 + atkLvl * 0.1);
                 const defPower = nb.troops * defenseMult * (1 + defLvl * 0.1);
-                countries[c.id] = { ...c, troops: Math.max(50, c.troops - Math.floor(force * 0.5)) };
+                // Spend gold as "PP cost" for declaring war
+                countries[agRichest.id] = { ...countries[agRichest.id], gold: agRichest.gold - 100 };
+                countries[c.id] = { ...countries[c.id], troops: Math.max(50, c.troops - Math.floor(force * 0.5)) };
                 if (atkPower > defPower) {
-                  // Aggressor wins — annex AND loot treasury into aggressor's capital
                   const looted = Math.floor(nb.gold);
                   countries[c.id] = { ...countries[c.id], gold: countries[c.id].gold + looted };
                   countries[nbId] = {
