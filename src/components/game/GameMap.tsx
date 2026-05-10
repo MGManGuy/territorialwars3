@@ -518,8 +518,9 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
             const desiredFactories = isRichMajor ? 3 : 2;
 
             // Port only for true islands: coastal AND no land neighbors
-            const nbs = neighborsRef.current[cid] || [];
-            const hasNoLandNeighbors = nbs.length === 0;
+            // neighborsRef stores Set<string>, so use .size not .length
+            const nbsSet = neighborsRef.current[cid];
+            const hasNoLandNeighbors = !nbsSet || nbsSet.size === 0;
             const isIsland = c.isCoastal !== false && hasNoLandNeighbors;
             const desiredPorts = isIsland ? 1 : 0;
 
@@ -632,7 +633,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
       });
     }, 100);
     return () => clearInterval(interval);
-  }, [gameState?.paused, gameState?.speed]);
+  }, [gameState?.paused, gameState?.speed, difficulty]);
 
   // Battle tick — runs every 250ms when a battle is active.
   useEffect(() => {
