@@ -903,25 +903,21 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
         // ----- Bot vs bot wars after 2030: bots with double the troops of a neighbor declare war
         // Track via a simple botWars record on countries (use relations < -50 + active flag in notifs).
         // We attack the neighbor immediately at full strength (instant resolution).
-        if (p.date.year >= 2030 && Math.random() < 0.5) {
-          // Pick a random aggressor bot
+        if (p.date.year >= 2026) {
+          // Each tick: every bot has a chance to launch a war on a weaker neighbor.
           const aggressors = p.bots.filter(b => Object.values(countries).some(c => c.owner === b.id));
-          if (aggressors.length > 0) {
-            const ag = aggressors[Math.floor(Math.random() * aggressors.length)];
+          for (const ag of aggressors) {
+            if (Math.random() > 0.35) continue; // ~35% chance per bot per 3s tick
             const agCountries = Object.values(countries).filter(c => c.owner === ag.id);
-            // For each aggressor country, find a neighboring country owned by a different owner
             outer: for (const c of agCountries) {
               const nbs = nbMap[c.id];
               if (!nbs) continue;
               for (const nbId of nbs) {
                 const nb = countries[nbId];
                 if (!nb || !nb.owner || nb.owner === ag.id) continue;
-                // Don't attack player here (handled by counter-attack); but allow if double troops AND not allied
                 if (nb.owner === "player") continue;
-                // Don't let bots attack other human players either.
                 if (nb.owner.startsWith("human-")) continue;
-                if (c.troops < nb.troops * 2) continue;
-                // Full-strength attack: aggressor uses 80% of troops
+                if (c.troops < nb.troops * 1.3) continue;
                 const force = Math.floor(c.troops * 0.8);
                 const defenseMult = 1 + nb.buildings.filter(b => b.type === "fort").length * 0.02;
                 const atkLvl = (botResearch[ag.id]?.atk || 0);
@@ -930,16 +926,18 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                 const defPower = nb.troops * defenseMult * (1 + defLvl * 0.1);
                 countries[c.id] = { ...c, troops: Math.max(50, c.troops - Math.floor(force * 0.5)) };
                 if (atkPower > defPower) {
-                  // Aggressor wins — annex
+                  // Aggressor wins — annex AND loot treasury into aggressor's capital
+                  const looted = Math.floor(nb.gold);
+                  countries[c.id] = { ...countries[c.id], gold: countries[c.id].gold + looted };
                   countries[nbId] = {
                     ...nb,
                     owner: ag.id,
                     color: ag.color,
+                    gold: 0,
                     troops: Math.max(50, Math.floor(force * 0.3)),
                   };
                   notifs.push(`⚔ ${ag.name} conquered ${nb.name}!`);
 
-                  // Guarantee trigger: if player guarantees this country, drag player into war with aggressor
                   if (p.guarantees?.includes(nbId)) {
                     const agAnyCountry = agCountries[0]?.id;
                     if (agAnyCountry && !wars.some(w => w.countryId === agAnyCountry)) {
@@ -948,7 +946,6 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
                     }
                   }
                 } else {
-                  // Defender holds
                   countries[nbId] = { ...nb, troops: Math.max(50, nb.troops - Math.floor(defPower * 0.2)) };
                   notifs.push(`🛡 ${nb.name} repelled ${ag.name}!`);
                 }
