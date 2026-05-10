@@ -182,7 +182,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
         });
         humanByOwnerKeyRef.current = humanMap;
       }
-      const topo: Topology = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(r => r.json());
+      const topo: Topology = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json").then(r => r.json());
       if (cancelled) return;
         const geo = feature(topo, topo.objects.countries as GeometryCollection) as unknown as FeatureCollection;
         const feats = geo.features.filter((f) => !EXCLUDED.includes(f.id as string));
@@ -212,13 +212,27 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
           "688","705","703","728","748","762","795","800","860","807","716","894","499","268",
         ]);
         for (const id of allIds) {
-          if (gs.countries[id]) {
-            gs.countries[id].isCoastal = !LANDLOCKED.has(id);
-          }
-        }
-        setGameState(gs);
-        gameStateRef.current = gs;
-    })();
+  const country = gs.countries[id];
+  if (country) {
+    country.isCoastal = !LANDLOCKED.has(id);
+    
+    // Tag specific big countries as "Cities" (Capital provinces)
+    // You can add more IDs to this list to make more cities
+    const capitals = ["840", "156", "643", "250", "826"]; 
+    if (capitals.includes(id)) {
+      country.buildings.push({ type: 'city', icon: '🏙' });
+      country.gold += 50; // Give cities a starting boost
+    }
+
+    // AI logic fix: Give every country a "center" that isn't just one point
+    // This helps stop the "building in one corner" look
+    country.buildings = country.buildings.map((b, i) => ({
+      ...b,
+      x: (b.x ?? 0) + (Math.random() * 10 - 5), // Jitter the position
+      y: (b.y ?? 0) + (Math.random() * 10 - 5)
+    }));
+  }
+}
     return () => { cancelled = true; };
   }, [playerCountryId, lobbyId]);
 
@@ -385,8 +399,16 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
       if (!c || c.buildings.length === 0) continue;
       const centroid = path.centroid(f);
       c.buildings.forEach((b, i) => {
-        const x = b.x ?? centroid[0];
-        const y = b.y ?? centroid[1];
+        let xOffset = 0;
+        let yOffset = 0;
+        if (b.x === undefined || b.y === undefined) {
+          const angle = i * 2.39996;
+          const radius = 6 * Math.sqrt(i);
+          xOffset = Math.cos(angle) * radius;
+          yOffset = Math.sin(angle) * radius;
+        }
+        const x = (b.x ?? centroid[0]) + xOffset;
+        const y = (b.y ?? centroid[1]) + yOffset;
         allBuildings.push({ key: `${f.id}-${i}`, x, y, icon: b.icon });
       });
     }
@@ -992,43 +1014,60 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
 
   // Keyboard controls
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      // Speed controls
+    const keys = new Set<string>();
+    let frame: number;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      keys.add(e.key.toLowerCase());
+
       if (e.key === " ") {
         e.preventDefault();
         setGameState((p) => p ? { ...p, paused: !p.paused } : p);
-        return;
       }
-      // Building hotbar 1-4
       const num = parseInt(e.key);
       if (num >= 1 && num <= BUILDING_SLOTS.length) {
         const bt = BUILDING_SLOTS[num - 1];
         setSelectedBuilding((prev) => (prev === bt ? null : bt));
-        return;
       }
       if (e.key === "Escape") {
         setSelectedBuilding(null);
         setContextMenu(null);
         setInspecting(null);
-        return;
-      }
-      // WASD pan
-      if (!svgRef.current) return;
-      const svg = d3.select(svgRef.current);
-      const zoom = (svgRef.current as any).__zoomBehavior;
-      if (!zoom) return;
-      const panAmt = 50;
-      let dx = 0, dy = 0;
-      if (e.key === "w" || e.key === "ArrowUp") dy = panAmt;
-      if (e.key === "s" || e.key === "ArrowDown") dy = -panAmt;
-      if (e.key === "a" || e.key === "ArrowLeft") dx = panAmt;
-      if (e.key === "d" || e.key === "ArrowRight") dx = -panAmt;
-      if (dx || dy) {
-        svg.transition().duration(100).call(zoom.translateBy, dx, dy);
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      keys.delete(e.key.toLowerCase());
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    const loop = () => {
+      if (svgRef.current) {
+        const svg = d3.select(svgRef.current);
+        const zoom = (svgRef.current as any).__zoomBehavior;
+        if (zoom) {
+          let dx = 0, dy = 0;
+          const speed = 15;
+          if (keys.has("w") || keys.has("arrowup")) dy = speed;
+          if (keys.has("s") || keys.has("arrowdown")) dy = -speed;
+          if (keys.has("a") || keys.has("arrowleft")) dx = speed;
+          if (keys.has("d") || keys.has("arrowright")) dx = -speed;
+          if (dx !== 0 || dy !== 0) {
+            zoom.translateBy(svg, dx, dy);
+          }
+        }
+      }
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
   // Click handler
