@@ -703,16 +703,21 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
             let newTroops = prev.troops + newAtk;
             let newTanks = prev.tanks + newAtkTanks;
             let newPlanes = prev.planes + newAtkPlanes;
+            let newGoldTotal = prev.gold;
             let newWars = prev.wars;
             if (newDef <= 0 && newAtk > 0) {
               const previousOwner = target.owner;
+              // War spoils: capture the conquered country's treasury
+              const looted = Math.floor(target.gold);
+              newGoldTotal += looted;
+              target.gold = 0;
               target.owner = "player";
               target.color = PLAYER_COLOR;
               target.troops = Math.max(50, Math.floor(newAtk * 0.5));
               newTroops -= target.troops;
               newCountries[b.targetId] = target;
               newWars = removeWar(prev.wars, b.targetId);
-              setTimeout(() => showNotif(`🏆 Conquered ${target.name}!`), 0);
+              setTimeout(() => showNotif(`🏆 Conquered ${target.name}! Looted ${looted} gold.`), 0);
               // Broadcast capture so other players' maps update
               mpBroadcast({
                 type: "country_captured",
