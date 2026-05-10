@@ -1023,37 +1023,48 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
           showNotif(`${def.label} requires a coastal country!`);
           return;
         }
-        if (gameState.gold < def.cost) {
-          showNotif(`Not enough gold! Need ${def.cost}`);
+        const mult = buildMultiplier;
+        const totalCost = def.cost * mult;
+        if (gameState.gold < totalCost) {
+          showNotif(`Not enough gold! Need ${totalCost} for x${mult}`);
           return;
         }
-        // Get click coords in map-group local space (accounts for zoom/pan)
         const gNode = svgRef.current?.querySelector("g.map-group") as SVGGElement | null;
-        let clickX: number | undefined;
-        let clickY: number | undefined;
+        let baseX: number | undefined;
+        let baseY: number | undefined;
         if (gNode) {
           const [lx, ly] = d3.pointer(e.nativeEvent, gNode);
-          clickX = lx;
-          clickY = ly;
+          baseX = lx;
+          baseY = ly;
         }
-        const buildingEntry = { type: selectedBuilding, icon: def.icon, x: clickX, y: clickY };
+        const entries: { type: BuildingType; icon: string; x?: number; y?: number }[] = [];
+        for (let i = 0; i < mult; i++) {
+          // Spread copies in a small spiral so they're visible separately
+          const angle = (i / Math.max(1, mult)) * Math.PI * 2;
+          const radius = i === 0 ? 0 : 6 + (i % 3) * 4;
+          const ex = baseX !== undefined ? baseX + Math.cos(angle) * radius : undefined;
+          const ey = baseY !== undefined ? baseY + Math.sin(angle) * radius : undefined;
+          entries.push({ type: selectedBuilding, icon: def.icon, x: ex, y: ey });
+        }
         setGameState((prev) => {
           if (!prev) return prev;
           const c = { ...prev.countries[id] };
-          c.buildings = [...c.buildings, buildingEntry];
+          c.buildings = [...c.buildings, ...entries];
           return {
             ...prev,
-            gold: prev.gold - def.cost,
+            gold: prev.gold - totalCost,
             countries: { ...prev.countries, [id]: c },
           };
         });
-        mpBroadcast({ type: "build", from: myOwnerKeyRef.current, countryId: id, building: buildingEntry });
-        showNotif(`${def.icon} ${def.label} placed in ${country.name}!`);
-        setSelectedBuilding(null);
+        for (const en of entries) {
+          mpBroadcast({ type: "build", from: myOwnerKeyRef.current, countryId: id, building: en });
+        }
+        showNotif(`${def.icon} ×${mult} ${def.label} placed in ${country.name}!`);
+        if (mult === 1) setSelectedBuilding(null);
         return;
       }
     },
-    [gameState, selectedBuilding, contextMenu]
+    [gameState, selectedBuilding, contextMenu, buildMultiplier, mpBroadcast]
   );
 
   // Right-click
