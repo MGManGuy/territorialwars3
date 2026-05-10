@@ -1960,7 +1960,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
             const factoryCount = inspectCountry.buildings.filter(b => b.type === "factory").length;
             // Per-second rates (tick is 100ms, so multiply per-tick gain by 10)
             const goldPerSec = ((0.1 + cityCount * 0.05) * mult + inspectCountry.tradeDeals.length * 0.2) * 10;
-            const troopsPerSec = (0.2 + factoryCount * 0.1) * mult * 10;
+            const troopsPerSec = 0.2 * mult * 10;
             return (
               <div className="space-y-2 text-sm text-gray-300">
                 <div>Owner: <span className="text-white">{inspectCountry.owner ? (inspectCountry.owner === "player" ? "You" : gameState.bots.find(b => b.id === inspectCountry.owner)?.name || "Unknown") : "Unowned"}</span></div>
