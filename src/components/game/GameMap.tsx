@@ -1566,26 +1566,43 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
       )}
 
       {/* Hotbar - bottom center */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex gap-1">
-        {BUILDING_SLOTS.map((bt, i) => {
-          const def = BUILDING_DEFS[bt];
-          const isSelected = selectedBuilding === bt;
-          return (
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-end gap-2">
+        <div className="flex gap-1">
+          {BUILDING_SLOTS.map((bt, i) => {
+            const def = BUILDING_DEFS[bt];
+            const isSelected = selectedBuilding === bt;
+            return (
+              <button
+                key={bt}
+                onClick={(e) => { e.stopPropagation(); setSelectedBuilding(isSelected ? null : bt); }}
+                className={`w-14 h-14 rounded-lg flex flex-col items-center justify-center text-xs transition border ${
+                  isSelected
+                    ? "bg-[#7c3aed] border-[#a78bfa] text-white"
+                    : "bg-[#0f1420]/90 border-[#4a5568] text-gray-300 hover:bg-[#1a2030]"
+                }`}
+                title={`${def.label} — ${def.cost * buildMultiplier} gold (×${buildMultiplier}) — ${def.description}`}
+              >
+                <span className="text-lg">{def.icon}</span>
+                <span className="text-[10px]">{i + 1}</span>
+              </button>
+            );
+          })}
+        </div>
+        {/* Build multiplier x1/x5/x10 */}
+        <div className="flex flex-col gap-1 ml-1">
+          {([1, 5, 10] as const).map((m) => (
             <button
-              key={bt}
-              onClick={(e) => { e.stopPropagation(); setSelectedBuilding(isSelected ? null : bt); }}
-              className={`w-14 h-14 rounded-lg flex flex-col items-center justify-center text-xs transition border ${
-                isSelected
-                  ? "bg-[#7c3aed] border-[#a78bfa] text-white"
-                  : "bg-[#0f1420]/90 border-[#4a5568] text-gray-300 hover:bg-[#1a2030]"
+              key={m}
+              onClick={(e) => { e.stopPropagation(); setBuildMultiplier(m); }}
+              className={`w-10 h-[17px] rounded text-[10px] font-bold border transition ${
+                buildMultiplier === m
+                  ? "bg-[#f97316] border-[#fb923c] text-white"
+                  : "bg-[#0f1420]/90 border-[#4a5568] text-gray-400 hover:bg-[#1a2030]"
               }`}
-              title={`${def.label} — ${def.cost} gold — ${def.description}`}
-            >
-              <span className="text-lg">{def.icon}</span>
-              <span className="text-[10px]">{i + 1}</span>
-            </button>
-          );
-        })}
+              title={`Place ${m} building${m > 1 ? "s" : ""} per click`}
+            >×{m}</button>
+          ))}
+        </div>
       </div>
 
       {/* Side rail - right middle: Research, Goals, Notifications */}
