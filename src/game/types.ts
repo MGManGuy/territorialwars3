@@ -161,38 +161,174 @@ export const BOT_COLORS = [
 export const PLAYER_COLOR = "#7c3aed"; // purple
 
 // Custom country colors override BOT_COLORS for these nations
+// Colors inspired by each country's flag/national identity (flag-color palette)
 export const COUNTRY_COLORS: Record<string, string> = {
-  "840": "#4a7fb5", // USA
-  "124": "#c41e3a", // Canada
-  "156": "#de2910", // China
-  "643": "#4d7a4d", // Russia
-  "250": "#002395", // France
-  "826": "#012169", // UK
-  "276": "#5a5a5a", // Germany
+  // Major Powers
+  "840": "#3c5a99", // USA - deep blue
+  "124": "#cc0000", // Canada - red
+  "156": "#de2910", // China - red
+  "643": "#2d5a2d", // Russia - dark green
+  "250": "#0044cc", // France - blue
+  "826": "#c8102e", // UK - red
+  "276": "#333333", // Germany - dark
+  "356": "#e67e22", // India - saffron
+  "076": "#009b3a", // Brazil - green
+  "392": "#bc002d", // Japan - crimson
+  // Europe
   "724": "#c60b1e", // Spain
-  "818": "#c09a3a", // Egypt
-  "682": "#1a6b3a", // Saudi Arabia
-  "356": "#f77f00", // India - Saffron Orange
-  "586": "#1a7a3a", // Pakistan - Forest Green
-  "076": "#009c3b", // Brazil
-  "392": "#bc002d", // Japan
-  "792": "#c8102e", // Turkey
-  "380": "#009246", // Italy
+  "380": "#009246", // Italy - green
   "528": "#ae1c28", // Netherlands
   "616": "#dc143c", // Poland
-  "710": "#007a4d", // South Africa
-  "484": "#006847", // Mexico
-  "360": "#ce1126", // Indonesia
-  "704": "#da251d", // Vietnam
-  "764": "#a51931", // Thailand
+  "752": "#006aa7", // Sweden - blue
+  "578": "#ef2b2d", // Norway
+  "246": "#003580", // Finland
+  "208": "#c60c30", // Denmark
+  "040": "#ed2939", // Austria
+  "756": "#ff0000", // Switzerland
+  "056": "#000000", // Belgium
+  "620": "#006600", // Portugal
+  "300": "#0d5eaf", // Greece
+  "348": "#436f4d", // Hungary
+  "642": "#002B7F", // Romania
+  "203": "#d7141a", // Czech Republic
+  "703": "#0b4ea2", // Slovakia
+  "191": "#171796", // Croatia
+  "070": "#002395", // Bosnia
+  "688": "#c6363c", // Serbia
+  "499": "#d4af37", // Montenegro
+  "807": "#006747", // North Macedonia
+  "008": "#e41e20", // Albania
+  "705": "#003DA5", // Slovenia
+  "440": "#fdb913", // Lithuania
+  "428": "#9e3039", // Latvia
+  "233": "#0072ce", // Estonia
+  "112": "#cf101a", // Belarus
+  "804": "#005bbb", // Ukraine
+  "498": "#003DA5", // Moldova
+  "100": "#00966e", // Bulgaria
+  "372": "#169b62", // Ireland
+  // Asia
+  "792": "#e30a17", // Turkey
+  "682": "#006c35", // Saudi Arabia
+  "818": "#c09a3a", // Egypt
+  "368": "#007a3d", // Iraq
+  "364": "#239f40", // Iran
+  "760": "#007a3d", // Syria
+  "422": "#00a550", // Lebanon
+  "400": "#007a3d", // Jordan
+  "784": "#00732f", // UAE
+  "634": "#8d1b3d", // Qatar
+  "414": "#007a3d", // Kuwait
+  "512": "#db161b", // Oman
+  "887": "#009a44", // Yemen
+  "586": "#01411c", // Pakistan
   "050": "#006a4e", // Bangladesh
+  "524": "#003893", // Nepal
+  "064": "#ff8000", // Bhutan
+  "144": "#8d153a", // Sri Lanka
+  "704": "#da251d", // Vietnam
+  "116": "#032ea1", // Cambodia
+  "764": "#a51931", // Thailand
+  "418": "#ce1126", // Laos
+  "104": "#fecb00", // Myanmar
+  "458": "#cc0001", // Malaysia
+  "608": "#0038a8", // Philippines
+  "360": "#ce1126", // Indonesia
+  "096": "#f7e017", // Brunei
   "410": "#003478", // South Korea
+  "408": "#024fa2", // North Korea
+  "496": "#c4272f", // Mongolia
+  "398": "#009b77", // Kazakhstan
+  "860": "#1eb53a", // Uzbekistan
+  "762": "#006600", // Tajikistan
+  "795": "#30a000", // Turkmenistan
+  "417": "#e8112d", // Kyrgyzstan
+  "004": "#000000", // Afghanistan
+  "031": "#0092bc", // Azerbaijan
+  "051": "#003580", // Armenia
+  "268": "#d50000", // Georgia
+  "356": "#e67e22", // India (dup safety)
+  // Africa
   "566": "#008751", // Nigeria
   "012": "#006233", // Algeria
+  "710": "#007a4d", // South Africa
+  "404": "#006600", // Kenya
+  "231": "#078930", // Ethiopia
+  "504": "#c1272d", // Morocco
+  "788": "#e70013", // Tunisia
+  "434": "#000000", // Libya
+  "729": "#d21034", // Sudan
+  "800": "#fcdc04", // Uganda
+  "834": "#1eb53a", // Tanzania
+  "516": "#003580", // Namibia
+  "716": "#006400", // Zimbabwe
+  "508": "#009a44", // Mozambique
+  "072": "#75aadb", // Botswana
+  "894": "#198a00", // Zambia
+  "454": "#000000", // Malawi
+  "108": "#ce1126", // Burundi
+  "646": "#20603d", // Rwanda
+  "180": "#007fff", // DRC
+  "178": "#009a00", // Republic of Congo
+  "120": "#007a5e", // Cameroon
+  "140": "#289728", // Central African Republic
+  "148": "#002664", // Chad
+  "562": "#e05206", // Niger
+  "466": "#14b53a", // Mali
+  "854": "#ef2b2d", // Burkina Faso
+  "686": "#00853f", // Senegal
+  "288": "#006b3f", // Ghana
+  "324": "#ce1126", // Guinea
+  "384": "#f77f00", // Ivory Coast
+  "430": "#003221", // Liberia
+  "694": "#1eb53a", // Sierra Leone
+  "204": "#008751", // Benin
+  "768": "#006a4e", // Togo
+  "566": "#008751", // Nigeria (dup safety)
+  "266": "#009e60", // Gabon
+  "450": "#fc3d32", // Madagascar
+  "748": "#3e5eb9", // Eswatini
+  "426": "#009543", // Lesotho
+  "262": "#6ab2e7", // Djibouti
+  "232": "#4189dd", // Eritrea
+  "706": "#4189dd", // Somalia
+  "478": "#006233", // Mauritania
+  "624": "#ce1126", // Guinea-Bissau
+  "270": "#3a7728", // Gambia
+  "132": "#003893", // Cape Verde
+  "678": "#12ad2b", // São Tomé
+  "174": "#3a75c4", // Comoros
+  "174": "#3a75c4", // Comoros
+  // Americas
   "032": "#74acdf", // Argentina
   "152": "#d52b1e", // Chile
   "170": "#fcd116", // Colombia
-  "400": "#007a3d", // Jordan
+  "604": "#d91023", // Peru
+  "862": "#cf142b", // Venezuela
+  "218": "#ffd100", // Ecuador
+  "068": "#d52b1e", // Bolivia
+  "600": "#d52b1e", // Paraguay
+  "858": "#ffffff", // Uruguay - light blue would be invisible, use mid blue
+  "328": "#009e60", // Guyana
+  "740": "#377e3f", // Suriname
+  "484": "#006847", // Mexico
+  "320": "#4997d0", // Guatemala
+  "340": "#0073cf", // Honduras
+  "558": "#3e6d96", // Nicaragua
+  "188": "#002b7f", // Costa Rica
+  "591": "#005293", // Panama
+  "192": "#002a8f", // Cuba
+  "214": "#002d62", // Dominican Republic
+  "332": "#00209f", // Haiti
+  "388": "#000000", // Jamaica - dark gold
+  "780": "#ce1126", // Trinidad
+  // Oceania
+  "036": "#00008b", // Australia
+  "554": "#00247d", // New Zealand
+  "598": "#000000", // Papua New Guinea
+  "242": "#003087", // Fiji
+  "090": "#003087", // Solomon Islands
+  "548": "#009543", // Vanuatu
 };
 
 // Continent assignments by ISO numeric code (for goal tracking)
@@ -244,4 +380,3 @@ export interface FormedNation {
   formableId: string;
   formedAt: number;
 }
-
