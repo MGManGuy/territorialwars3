@@ -7,7 +7,7 @@ import { getCountryName, getCountryFlag } from "@/game/countryNames";
 import { initGameState, getGoldRate, getTroopRate, getLeaderboard, getPoliticalPowerRate } from "@/game/gameState";
 import {
   type GameState, type BuildingType, type War, BUILDING_DEFS, BUILDING_SLOTS,
-  advanceDate, formatDate, PLAYER_COLOR, RESEARCH_DEFS, GOALS, CONTINENTS, CONTINENT_NAMES,
+  advanceDate, formatDate, PLAYER_COLOR, RESEARCH_DEFS, GOALS, CONTINENTS, CONTINENT_NAMES, FORMABLES,
 } from "@/game/types";
 
 // Helper to check if at war with a country
@@ -117,6 +117,10 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
   const [showResearch, setShowResearch] = useState(false);
   const [showGoals, setShowGoals] = useState(false);
   const [showNotifLog, setShowNotifLog] = useState(false);
+  const [showFormables, setShowFormables] = useState(false);
+  const [buildMultiplier, setBuildMultiplier] = useState<1 | 5 | 10>(1);
+  const [attackTanks, setAttackTanks] = useState<number>(0);
+  const [attackPlanes, setAttackPlanes] = useState<number>(0);
   const gameStateRef = useRef<GameState | null>(null);
   const featuresRef = useRef<Feature<Geometry>[]>([]);
   // Neighbor map: countryId -> Set of bordering countryIds
@@ -197,7 +201,7 @@ export default function GameMap({ playerCountryId, difficulty = "easy", lobbyId,
         });
         neighborsRef.current = nbMap;
 
-        const gs = initGameState(playerCountryId, allIds, 30, { seed, reservedOwners });
+        const gs = initGameState(playerCountryId, allIds, allIds.length, { seed, reservedOwners });
         // Mark coastal countries: a country is coastal if it has fewer neighbors than the
         // number of its land borders would suggest. Heuristic: any country with <= 2 neighbors
         // is coastal/island; otherwise check via ocean test by sampling. Simpler: use a known list
